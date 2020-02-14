@@ -79,7 +79,12 @@ class Output:
         )
 
     def highlight(self, line, highlight=True):
-        if not highlight:
+        line = line.decode('utf8') if isinstance(line, bytes) else line
+        if not highlight or (
+            '\x1b[' in line
+            or '\033[' in line
+            or '\\e[' in line
+        ):
             return line
         elif isinstance(highlight, str):
             lexer = lexers.get_lexer_by_name(highlight)
@@ -100,18 +105,13 @@ class PrefixStreamProtocol(asyncio.subprocess.SubprocessStreamProtocol):
     """
 
     def __init__(self, prefix, *args, **kwargs):
+        self.debug = kwargs.get('debug', True)
         self.prefix = prefix
         super().__init__(*args, **kwargs)
 
     def pipe_data_received(self, fd, data):
-        from .console_script import console_script
-        debug = console_script.options.get('debug', False)
-
-        if (debug is True or 'out' in str(debug)) and fd in (1, 2):
-            for line in data.split(b'\n'):
-                if not line:
-                    continue
-                output(line, self.prefix, flush=False)
+        if (self.debug is True or 'out' in str(self.debug)) and fd in (1, 2):
+            output(data, self.prefix, flush=False)
             sys.stdout.flush()
         super().pipe_data_received(fd, data)
 
@@ -140,29 +140,44 @@ class Proc:
         print(proc.err)  # stderr
         print(proc.rc)   # return code
     """
+    test = False
 
-    def __init__(self, *args, prefix=None, raises=True):
-        args = [str(a) for a in args]
+    def __init__(self, *args, prefix=None, raises=True, debug=True):
+        self.debug = debug if not self.test else False
         self.cmd = ' '.join(args)
-        if len(args) == 1:
-            if isinstance(args[0], (list, tuple)):
-                args = self.cmd = args[0]
-            else:
-                args = ['sh', '-euc', ' '.join(args)]
         self.args = args
         self.prefix = prefix
         self.raises = raises
         self.called = False
         self.communicated = False
+        self.out_raw = b''
+        self.err_raw = b''
+        self.out = ''
+        self.err = ''
+        self.rc = None
+
+    @staticmethod
+    def split(*args):
+        args = [str(a) for a in args]
+        if len(args) == 1:
+            if isinstance(args[0], (list, tuple)):
+                args = args[0]
+            else:
+                args = ['sh', '-euc', ' '.join(args)]
+        return args
 
     async def __call__(self, wait=True):
         if self.called:
             raise Exception('Already called: ' + self.cmd)
 
-        from .console_script import console_script
-        debug = console_script.options.get('debug', False)
-        if debug is True or 'cmd' in str(debug):
+        if self.debug is True or 'cmd' in str(self.debug):
             output.cmd(self.cmd, self.prefix)
+
+        if self.test:
+            if self.test is True:
+                type(self).test = []
+            self.test.append(self.args)
+            return self
 
         loop = asyncio.events.get_event_loop()
         transport, protocol = await loop.subprocess_exec(
@@ -184,6 +199,8 @@ class Proc:
         return self
 
     async def wait(self):
+        if self.test:
+            return self
         if not self.called:
             await self()
         if not self.communicated:
@@ -196,3 +213,13 @@ class Proc:
     def json(self):
         import json
         return json.loads(self.out)
+
+    def mock():
+        """Context manager for testing purpose."""
+        cls = Proc
+        class Mock:
+            def __enter__(_):
+                cls.test = True
+            def __exit__(_, exc_type, exc_value, traceback):
+                cls.test = False
+        return Mock()

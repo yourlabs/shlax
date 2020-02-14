@@ -1,6 +1,8 @@
 import os
 import subprocess
 
+from .base import Action
+
 from ..exceptions import WrongResult
 
 CI_VARS = (
@@ -15,28 +17,24 @@ CI_VARS = (
 )
 
 
-class Commit:
+class Commit(Action):
     def __init__(self, repo, tags=None, format=None, push=None, registry=None):
         self.repo = repo
         self.registry = registry or 'localhost'
         self.push = push or os.getenv('CI')
-        self.tags = tags or []
 
         # figure out registry host
         if '/' in self.repo and not registry:
             first = self.repo.split('/')[0]
             if '.' in first or ':' in first:
                 self.registry = self.repo.split('/')[0]
-                self.repo = '/'.join(self.repo.split('/')[1:])
-
-        if ':' in self.repo and not tags:
-            self.tags = [self.repo.split(':')[1]]
-            self.repo = self.repo.split(':')[0]
 
         # docker.io currently has issues with oci format
         self.format = format or 'oci'
         if self.registry == 'docker.io':
             self.format = 'docker'
+
+        self.tags = tags or []
 
         # figure tags from CI vars
         if not self.tags:
@@ -52,23 +50,20 @@ class Commit:
         if not self.tags:
             self.tags = ['latest']
 
-        # default tag for master too
-        if 'master' in self.tags:
-            self.tags.append('latest')
-
-        self.repotags = [f'{self.registry}/{self.repo}:{tag}' for tag in self.tags]
-
-    async def post_build(self, script):
-        self.sha = (await script.exec(
+    async def __call__(self, *args, ctr=None, **kwargs):
+        self.sha = (await self.parent.parent.exec(
             'buildah',
             'commit',
             '--format=' + self.format,
-            script.ctr,
+            ctr,
         )).out
 
+        if 'master' in self.tags:
+            self.tags.append('latest')
+
         if self.tags:
-            for tag in self.repotags:
-                await script.exec('buildah', 'tag', self.sha, self.repo, tag)
+            tags = ' '.join([f'{self.repo}:{tag}' for tag in self.tags])
+            await script.exec('buildah', 'tag', self.sha, self.repo, tags)
 
             if self.push:
                 user = os.getenv('DOCKER_USER')
@@ -84,8 +79,8 @@ class Commit:
                         self.registry,
                     )
 
-                for tag in self.repotags:
-                    await script.exec('podman', 'push', tag)
+                for tag in self.tags:
+                    await script.exec('podman', 'push', f'{self.repo}:{tag}')
         await script.umount()
 
     def __repr__(self):

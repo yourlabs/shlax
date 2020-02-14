@@ -7,8 +7,10 @@ import os
 import subprocess
 from textwrap import dedent
 
+from .base import Action
 
-class Packages:
+
+class Packages(Action):
     """
     The Packages visitor wraps around the container's package manager.
 
@@ -17,6 +19,8 @@ class Packages:
     visitor will declare ``self.packages = dict(apt=['python3-pip'])``, and the
     Packages visitor will pick it up.
     """
+    contextualize = ['mgr']
+
     mgrs = dict(
         apk=dict(
             update='apk update',
@@ -27,6 +31,11 @@ class Packages:
             update='apt-get -y update',
             upgrade='apt-get -y upgrade',
             install='apt-get -y --no-install-recommends install',
+        ),
+        pacman=dict(
+            update='pacman -Sy',
+            upgrade='pacman -Su --noconfirm',
+            install='pacman -S --noconfirm',
         ),
         dnf=dict(
             update='dnf makecache --assumeyes',
@@ -58,24 +67,9 @@ class Packages:
         else:
             return os.path.join(os.getenv('HOME'), '.cache')
 
-    async def init_build(self, script):
-        cached = script.container.variable('mgr')
-        if cached:
-            self.mgr = cached
-        else:
-            for mgr, cmds in self.mgrs.items():
-                if await script.which(mgr):
-                    self.mgr = mgr
-                    break
-
-        if not self.mgr:
-            raise Exception('Packages does not yet support this distro')
-
-        self.cmds = self.mgrs[self.mgr]
-
-    async def update(self, script):
+    async def update(self):
         # run pkgmgr_setup functions ie. apk_setup
-        cachedir = await getattr(self, self.mgr + '_setup')(script)
+        cachedir = await getattr(self, self.mgr + '_setup')()
 
         lastupdate = None
         if os.path.exists(cachedir + '/lastupdate'):
@@ -84,6 +78,9 @@ class Packages:
                     lastupdate = int(f.read().strip())
                 except:
                     pass
+
+        if not os.path.exists(cachedir):
+            os.makedirs(cachedir)
 
         now = int(datetime.now().strftime('%s'))
         # cache for a week
@@ -96,7 +93,7 @@ class Packages:
                     f.write(str(os.getpid()))
 
                 try:
-                    await script.cexec(self.cmds['update'])
+                    await self.rexec(self.cmds['update'])
                 finally:
                     os.unlink(lockfile)
 
@@ -104,54 +101,69 @@ class Packages:
                     f.write(str(now))
             else:
                 while os.path.exists(lockfile):
-                    print(f'{script.container.name} | Waiting for update ...')
+                    print(f'{self.container.name} | Waiting for update ...')
                     await asyncio.sleep(1)
 
-    async def build(self, script):
-        if not getattr(script.container, '_packages_upgraded', None):
-            await self.update(script)
-            await script.cexec(self.cmds['upgrade'])
+    async def __call__(self, *args, **kwargs):
+        cached = getattr(self, '_pagkages_mgr', None)
+        if cached:
+            self.mgr = cached
+        else:
+            mgr = await self.which(*self.mgrs.values())
+            if mgr:
+                self.mgr = mgr.split('/')[-1]
+
+        if not self.mgr:
+            raise Exception('Packages does not yet support this distro')
+
+        self.cmds = self.mgrs[self.mgr]
+        if not getattr(self, '_packages_upgraded', None):
+            await self.update()
+            await self.rexec(self.cmds['upgrade'])
 
             # first run on container means inject visitor packages
             packages = []
-            for visitor in script.container.visitors:
-                pp = getattr(visitor, 'packages', None)
+            for sibbling in self.sibblings:
+                pp = getattr(sibbling, 'packages', None)
                 if pp:
                     if isinstance(pp, list):
                         packages += pp
                     elif self.mgr in pp:
                         packages += pp[self.mgr]
 
-            script.container._packages_upgraded = True
+            self._packages_upgraded = True
         else:
             packages = self.packages
 
-        await script.crexec(*self.cmds['install'].split(' ') + packages)
+        await self.rexec(*self.cmds['install'].split(' ') + packages)
 
-    async def apk_setup(self, script):
+    async def apk_setup(self):
         cachedir = os.path.join(self.cache_root, self.mgr)
-        await script.mount(cachedir, '/var/cache/apk')
+        await self.mount(cachedir, '/var/cache/apk')
         # special step to enable apk cache
-        await script.cexec('ln -s /var/cache/apk /etc/apk/cache')
+        await self.rexec('ln -s /var/cache/apk /etc/apk/cache')
         return cachedir
 
-    async def dnf_setup(self, script):
+    async def dnf_setup(self):
         cachedir = os.path.join(self.cache_root, self.mgr)
-        await script.mount(cachedir, f'/var/cache/{self.mgr}')
-        await script.run('echo keepcache=True >> /etc/dnf/dnf.conf')
+        await self.mount(cachedir, f'/var/cache/{self.mgr}')
+        await self.run('echo keepcache=True >> /etc/dnf/dnf.conf')
         return cachedir
 
-    async def apt_setup(self, script):
-        codename = (await script.exec(
-            f'source {script.mnt}/etc/os-release; echo $VERSION_CODENAME'
+    async def apt_setup(self):
+        codename = (await self.rexec(
+            f'source {self.mnt}/etc/os-release; echo $VERSION_CODENAME'
         )).out
         cachedir = os.path.join(self.cache_root, self.mgr, codename)
-        await script.cexec('rm /etc/apt/apt.conf.d/docker-clean')
+        await self.rexec('rm /etc/apt/apt.conf.d/docker-clean')
         cache_archives = os.path.join(cachedir, 'archives')
-        await script.mount(cache_archives, f'/var/cache/apt/archives')
+        await self.mount(cache_archives, f'/var/cache/apt/archives')
         cache_lists = os.path.join(cachedir, 'lists')
-        await script.mount(cache_lists, f'/var/lib/apt/lists')
+        await self.mount(cache_lists, f'/var/lib/apt/lists')
         return cachedir
+
+    async def pacman_setup(self):
+        return self.cache_root + '/pacman'
 
     def __repr__(self):
         return f'Packages({self.packages})'

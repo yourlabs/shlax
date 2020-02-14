@@ -1,24 +1,10 @@
-build:
-  stage: test
-  image: yourlabs/podctl
-  script: pip install . && CACHE_DIR=$(pwd)/.cache podctl build -d
-  cache:
-    paths:
-    - .cache
-    key: cache
-
-py-test:
-  stage: test
-  image: yourlabs/python
-  script: pip install -e . && py.test -s
-
-pod-test:
-  stage: test
-  image: yourlabs/podctl
-  script: pip install -e . && cd examples/simple && podctl test -d .
-
 pypi:
-  stage: deploy
   image: yourlabs/python
+  only:
+  - tags
   script: pypi-release
-  only: [tags]
+  stage: deploy
+test:
+  image: yourlabs/python
+  script: pip install -U . && py.test -svv tests
+  stage: test

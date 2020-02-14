@@ -1,5 +1,9 @@
 '''
-docker & docker-compose frustrated me, podctl unfrustrates me.
+shlax is a micro-framework to orchestrate commands.
+
+  shlax yourfile.py: to list actions you have declared.
+  shlax yourfile.py <action>: to execute a given action
+  #!/usr/bin/env shlax: when making yourfile.py an executable.
 '''
 
 import asyncio
@@ -8,16 +12,19 @@ import inspect
 import os
 import sys
 
-from .container import Container
-from .exceptions import Mistake, WrongResult
-from .pod import Pod
-from .podfile import Podfile
-from .proc import output
-from .service import Service
+from .exceptions import *
+from .shlaxfile import Shlaxfile
+from .targets import Localhost
+
+
+async def runall(*args, **kwargs):
+    for name, action in cli.shlaxfile.actions.items():
+        await Localhost(action)(*args, **kwargs)
 
 
 @cli2.option('debug', alias='d', help='Display debug output.')
 async def test(*args, **kwargs):
+    breakpoint()
     """Run podctl test over a bunch of paths."""
     report = []
 
@@ -105,54 +112,37 @@ async def test(*args, **kwargs):
 
 
 class ConsoleScript(cli2.ConsoleScript):
-    class Parser(cli2.Parser):
-        def parse(self):
-            super().parse()
-            if str(self.command) == 'help':
-                return
-
-            self.forward_args = []
-
-            found_dash = False
-            for arg in self.argv:
-                if arg == '--':
-                    found_dash = True
-                if not found_dash:
-                    continue
-                self.forward_args.append(arg)
-
-            self.funckwargs['cmd'] = self.forward_args
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.options = dict()
-
     def __call__(self, *args, **kwargs):
-        podfile = os.getenv('PODFILE', 'pod.py')
-        if os.path.exists(podfile):
-            self.podfile = Podfile.factory(podfile)
-            for name, script in self.podfile.pod.scripts.items():
-                cb = self.podfile.pod.script(name)
-                cb.__doc__ = inspect.getdoc(script) or script.doc
+        self.shlaxfile = None
+        shlaxfile = sys.argv.pop(1) if len(sys.argv) > 1 else ''
+        if os.path.exists(shlaxfile.split('::')[0]):
+            self.shlaxfile = Shlaxfile()
+            self.shlaxfile.parse(shlaxfile)
+            for name, action in self.shlaxfile.actions.items():
+                async def cb(*args, **kwargs):
+                    return await Localhost(action)(*args, **kwargs)
                 self[name] = cli2.Callable(
                     name,
                     cb,
-                    options={o.name: o for o in script.options},
-                    color=getattr(script, 'color', cli2.YELLOW),
+                    color=getattr(action, 'color', cli2.YELLOW),
                 )
         return super().__call__(*args, **kwargs)
 
     def call(self, command):
-        self.options = self.parser.options
+        args = self.parser.funcargs
+        kwargs = self.parser.funckwargs
+        breakpoint()
+        return command(*args, **kwargs)
 
+    def call(self, command):
         try:
             return super().call(command)
-        except Mistake as e:
-            print(e)
-            self.exit_code = 1
         except WrongResult as e:
             print(e)
             self.exit_code = e.proc.rc
+        except ShlaxException as e:
+            print(e)
+            self.exit_code = 1
 
 
-console_script = ConsoleScript(__doc__).add_module('podctl.console_script')
+cli = ConsoleScript(__doc__).add_module('shlax.cli')

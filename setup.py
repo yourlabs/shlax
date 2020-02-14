@@ -2,27 +2,26 @@ from setuptools import setup
 
 
 setup(
-    name='podctl',
+    name='shlax',
     versioning='dev',
     setup_requires='setupmeta',
-    install_requires=['cli2', 'pygments'],
+    install_requires=['cli2'],
     extras_require=dict(
         test=[
-            'freezegun',
             'pytest',
             'pytest-cov',
         ],
     ),
     author='James Pic',
     author_email='jamespic@gmail.com',
-    url='https://yourlabs.io/oss/podctl',
+    url='https://yourlabs.io/oss/shlax',
     include_package_data=True,
     license='MIT',
-    keywords='cli',
+    keywords='cli automation ansible',
     python_requires='>=3',
     entry_points={
         'console_scripts': [
-            'podctl = podctl.console_script:console_script',
+            'shlax = shlax.cli:cli',
         ],
     },
 )
