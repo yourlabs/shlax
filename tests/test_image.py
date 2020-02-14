@@ -21,7 +21,7 @@ tests = {
     )) for k, v in tests.items()]
 )
 def test_args(arg, expected):
-    Image.ENV_TAGS = ['IMAGE_TEST_ARGS_ENV']
+    Image.ENV_TAGS = []
     im = Image(arg)
     for k, v in expected.items():
         assert getattr(im, k) == v
