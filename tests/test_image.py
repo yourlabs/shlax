@@ -1,4 +1,5 @@
 import pytest
+import os
 
 from shlax import Image
 
@@ -25,7 +26,6 @@ def test_args(arg, expected):
         assert getattr(im, k) == v
 
 def test_args_env():
-    import os
     os.environ.setdefault('CIRCLE_TAG', 'foo')
     im = Image('re/po:x,y')
     assert im.tags == ['x', 'y'] + [
