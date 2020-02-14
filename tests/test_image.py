@@ -26,6 +26,8 @@ def test_args(arg, expected):
 
 def test_args_env():
     import os
-    os.environ['CIRCLE_TAG'] = 'foo'
+    os.environ.setdefault('CIRCLE_TAG', 'foo')
     im = Image('re/po:x,y')
-    assert im.tags == ['x', 'y', 'foo']
+    assert im.tags == ['x', 'y'] + [
+        os.environ[e] for e in Image.ENV_TAGS if os.getenv(e)
+    ]
