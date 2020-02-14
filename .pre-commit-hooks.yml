@@ -1,5 +1,0 @@
-- id: shlaxfile-gitlabci
-  name: Check for added large files
-  description: Regenerate gitlabci
-  entry: ./shlaxfile.py gitlabci
-  language: python
