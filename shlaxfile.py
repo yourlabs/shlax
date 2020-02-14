@@ -5,7 +5,7 @@ gitlabci = GitLabCIConfig(
     Job('test',
         stage='test',
         image='yourlabs/python',
-        script='pip install -U . && py.test -svv tests',
+        script='pip install -U .[test] && py.test -svv tests',
     ),
     Job('pypi',
         stage='deploy',

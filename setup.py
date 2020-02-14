@@ -10,6 +10,7 @@ setup(
         test=[
             'pytest',
             'pytest-cov',
+            'pytest-asyncio',
         ],
     ),
     author='James Pic',

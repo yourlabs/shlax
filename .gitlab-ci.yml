@@ -6,5 +6,5 @@ pypi:
   stage: deploy
 test:
   image: yourlabs/python
-  script: pip install -U . && py.test -svv tests
+  script: pip install -U .[test] && py.test -svv tests
   stage: test
