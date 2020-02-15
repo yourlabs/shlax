@@ -30,6 +30,7 @@ class Localhost(Script):
 
     async def exec(self, *args, **kwargs):
         kwargs.setdefault('debug', self.call_kwargs.get('debug', False))
+        kwargs.setdefault('output', self.output)
         args, kwargs = self.shargs(*args, **kwargs)
         proc = await Proc(*args, **kwargs)()
         if kwargs.get('wait', True):

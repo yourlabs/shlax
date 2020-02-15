@@ -61,10 +61,18 @@ class Buildah(Localhost):
         dst = args[-1]
         await self.mkdir(dst)
 
-        args = ['buildah', 'copy', self.ctr] + list(
-            [str(a) for a in src]
-        ) + [str(dst)]
-        return await self.exec(*args, buildah=False)
+        procs = []
+        for s in src:
+            if Path(s).is_dir():
+                target = self.mnt / s
+                if not target.exists():
+                    await self.mkdir(target)
+                args = ['buildah', 'copy', self.ctr, s, Path(dst) / s]
+            else:
+                args = ['buildah', 'copy', self.ctr, s, dst]
+            procs.append(self.exec(*args, buildah=False))
+
+        return await asyncio.gather(*procs)
 
     async def mount(self, src, dst):
         """Mount a host directory into the container."""
@@ -87,7 +95,7 @@ class Buildah(Localhost):
                     return p[len(str(self.mnt)):]
 
     def is_wrapper(self):
-        return (
+        return not (
             Proc.test
             or os.getuid() == 0
             or getattr(self.parent, 'parent', None)

@@ -21,7 +21,6 @@ class Actions(list):
 
 
 class Script(Action):
-    root = '/'
     contextualize = ['shargs', 'exec', 'rexec', 'env', 'which', 'copy']
 
     def __init__(self, *actions, **kwargs):
