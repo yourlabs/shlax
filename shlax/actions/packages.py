@@ -20,6 +20,10 @@ class Packages(Action):
     Packages visitor will pick it up.
     """
     contextualize = ['mgr']
+    regexps = {
+        #r'Installing ([\w\d-]+)': '{cyan}\\1',
+        r'Installing': '{cyan}lol',
+    }
 
     mgrs = dict(
         apk=dict(

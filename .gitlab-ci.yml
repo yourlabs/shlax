@@ -1,3 +1,7 @@
+build:
+  image: yourlabs/shlax
+  script: pip install -U .[test] && py.test -svv tests
+  stage: test
 pypi:
   image: yourlabs/python
   only:
