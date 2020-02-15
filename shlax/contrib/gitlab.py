@@ -10,3 +10,6 @@ class GitLabCIConfig(Script):
         if write:
             with open('.gitlab-ci.yml', 'w+') as f:
                 f.write(output)
+
+    def colorized(self):
+        return type(self).__name__
