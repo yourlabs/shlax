@@ -11,8 +11,6 @@ class Action:
     regexps = {
         r'([\w]+):': '{cyan}\\1{gray}:{reset}',
         r'(^|\n)( *)\- ': '\\1\\2{red}-{reset} ',
-        r'([^ =]+)=': '{blue}\\1{red}={reset} ',
-        r'=': '{blue}={reset} ',
     }
     options = dict(
         debug=dict(
