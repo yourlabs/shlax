@@ -30,7 +30,7 @@ class Buildah(Localhost):
         self.push = push or os.getenv('CI')
 
     def shargs(self, *args, user=None, buildah=True, **kwargs):
-        if not buildah:
+        if not buildah or args[0].startswith('buildah'):
             return super().shargs(*args, user=user, **kwargs)
 
         _args = ['buildah', 'run']
