@@ -17,7 +17,7 @@ class Output:
     def colorize(self, code, content):
         return self.color(code) + content + self.color()
 
-    def __init__(self, prefix=None, regexps=None, debug=True, write=None, flush=None):
+    def __init__(self, prefix=None, regexps=None, debug=False, write=None, flush=None):
         self.prefix = prefix
         self.debug = debug
         self.prefix_length = 0

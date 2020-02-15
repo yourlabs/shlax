@@ -86,12 +86,16 @@ class Buildah(Localhost):
                 if os.path.exists(p):
                     return p[len(str(self.mnt)):]
 
-    @property
-    def _compatible(self):
-        return Proc.test or os.getuid() == 0 or getattr(self.parent, 'parent', None)
+    def is_wrapper(self):
+        return (
+            Proc.test
+            or os.getuid() == 0
+            or getattr(self.parent, 'parent', None)
+        )
+
 
     async def call(self, *args, **kwargs):
-        if self._compatible:
+        if not self.is_wrapper():
             self.ctr = (await self.exec('buildah', 'from', self.base, buildah=False)).out
             self.mnt = Path((await self.exec('buildah', 'mount', self.ctr, buildah=False)).out)
             result = await super().call(*args, **kwargs)
@@ -103,13 +107,13 @@ class Buildah(Localhost):
         argv = [
             'buildah', 'unshare',
             sys.argv[0],  # current script location
+            cli.shlaxfile.path,  # current shlaxfile location
         ]
         if debug is True:
             argv.append('-d')
-        elif isinstance(debug, str):
+        elif isinstance(debug, str) and debug:
             argv.append('-d=' + debug)
         argv += [
-            cli.shlaxfile.path,
             cli.parser.command.name,  # script name ?
         ]
         self.output(' '.join(argv), 'EXECUTION', flush=True)
@@ -158,7 +162,7 @@ class Buildah(Localhost):
                     await self.exec('podman', 'push', f'{self.image.repository}:{tag}', buildah=False)
 
     async def clean(self, *args, **kwargs):
-        if not self._compatible:
+        if self.is_wrapper():
             return
 
         for src, dst in self.mounts.items():

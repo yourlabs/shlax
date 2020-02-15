@@ -54,7 +54,7 @@ class Proc:
     """
     test = False
 
-    def __init__(self, *args, prefix=None, raises=True, debug=True, output=None):
+    def __init__(self, *args, prefix=None, raises=True, debug=None, output=None):
         self.debug = debug if not self.test else False
         self.output = output or Output()
         self.cmd = ' '.join(args)

@@ -104,6 +104,8 @@ class Action:
         return Output(*args, **kwargs)
 
     async def __call__(self, *args, **kwargs):
+        self.call_args = args
+        self.call_kwargs = kwargs
         self.output = self.output_factory(*args, **kwargs)
         self.output_start()
         self.status = 'running'
