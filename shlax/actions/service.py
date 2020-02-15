@@ -9,7 +9,7 @@ class Service(Action):
         self.names = names
         super().__init__()
 
-    async def __call__(self, *args, **kwargs):
+    async def call(self, *args, **kwargs):
         return asyncio.gather(*[
             self.exec('systemctl', 'start', name, user='root')
             for name in self.names

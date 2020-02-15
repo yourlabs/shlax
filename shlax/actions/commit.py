@@ -50,7 +50,7 @@ class Commit(Action):
         if not self.tags:
             self.tags = ['latest']
 
-    async def __call__(self, *args, ctr=None, **kwargs):
+    async def call(self, *args, ctr=None, **kwargs):
         self.sha = (await self.parent.parent.exec(
             'buildah',
             'commit',

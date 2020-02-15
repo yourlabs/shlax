@@ -1,5 +1,5 @@
 - id: shlaxfile-gitlabci
-  name: Check for added large files
+  name: Regenerate .gitlab-ci.yml
   description: Regenerate gitlabci
-  entry: ./shlaxfile.py gitlabci
+  entry: pip install -e . && ./shlaxfile.py gitlabci
   language: python

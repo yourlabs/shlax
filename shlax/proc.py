@@ -3,99 +3,12 @@ Asynchronous process execution wrapper.
 """
 
 import asyncio
-from colorama import Fore, Back, Style
 import os
 import shlex
 import sys
 
 from .exceptions import WrongResult
-import pygments
-from pygments import lexers
-from pygments.formatters import TerminalFormatter
-from pygments.formatters import Terminal256Formatter
-
-
-class Output:
-    colors = (
-        '\x1b[1;36;45m',
-        '\x1b[1;36;41m',
-        '\x1b[1;36;40m',
-        '\x1b[1;37;45m',
-        '\x1b[1;32m',
-        '\x1b[1;37;44m',
-    )
-    def __init__(self):
-        self.prefixes = dict()
-        self.prefix_length = 0
-
-    def __call__(self, line, prefix, highlight=True, flush=True):
-        if prefix and prefix not in self.prefixes:
-            self.prefixes[prefix] = (
-                self.colors[len([*self.prefixes.keys()]) - 1]
-            )
-            if len(prefix) > self.prefix_length:
-                self.prefix_length = len(prefix)
-
-        prefix_color = self.prefixes[prefix] if prefix else ''
-        prefix_padding = '.' * (self.prefix_length - len(prefix) - 2) if prefix else ''
-        if prefix_padding:
-            prefix_padding = ' ' + prefix_padding + ' '
-
-        sys.stdout.buffer.write((
-            (
-                prefix_color
-                + prefix_padding
-                + prefix
-                + ' '
-                + Back.RESET
-                + Style.RESET_ALL
-                + Fore.LIGHTBLACK_EX
-                + '| '
-                + Style.RESET_ALL
-                if prefix
-                else ''
-            )
-            + self.highlight(line, highlight)
-        ).encode('utf8'))
-
-        if flush:
-            sys.stdout.flush()
-
-    def cmd(self, line, prefix):
-        self(
-            Fore.LIGHTBLACK_EX
-            + '+ '
-            + Style.RESET_ALL
-            + self.highlight(line, 'bash'),
-            prefix,
-            highlight=False
-        )
-
-    def print(self, content):
-        self(
-            content,
-            prefix=None,
-            highlight=False
-        )
-
-    def highlight(self, line, highlight=True):
-        line = line.decode('utf8') if isinstance(line, bytes) else line
-        if not highlight or (
-            '\x1b[' in line
-            or '\033[' in line
-            or '\\e[' in line
-        ):
-            return line
-        elif isinstance(highlight, str):
-            lexer = lexers.get_lexer_by_name(highlight)
-        else:
-            lexer = lexers.get_lexer_by_name('python')
-        formatter = Terminal256Formatter(
-            style=os.getenv('PODCTL_STYLE', 'fruity'))
-        return pygments.highlight(line, lexer, formatter)
-
-
-output = Output()
+from .output import Output
 
 
 class PrefixStreamProtocol(asyncio.subprocess.SubprocessStreamProtocol):
@@ -104,14 +17,13 @@ class PrefixStreamProtocol(asyncio.subprocess.SubprocessStreamProtocol):
     make asynchronous output readable.
     """
 
-    def __init__(self, prefix, *args, **kwargs):
-        self.debug = kwargs.get('debug', True)
-        self.prefix = prefix
+    def __init__(self, output, *args, **kwargs):
+        self.output = output
         super().__init__(*args, **kwargs)
 
     def pipe_data_received(self, fd, data):
         if (self.debug is True or 'out' in str(self.debug)) and fd in (1, 2):
-            output(data, self.prefix, flush=False)
+            self.output(data, flush=False)
             sys.stdout.flush()
         super().pipe_data_received(fd, data)
 
@@ -142,8 +54,9 @@ class Proc:
     """
     test = False
 
-    def __init__(self, *args, prefix=None, raises=True, debug=True):
+    def __init__(self, *args, prefix=None, raises=True, debug=True, output=None):
         self.debug = debug if not self.test else False
+        self.output = output or Output()
         self.cmd = ' '.join(args)
         self.args = args
         self.prefix = prefix

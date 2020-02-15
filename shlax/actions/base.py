@@ -1,6 +1,9 @@
 import inspect
 import sys
 
+from ..output import Output
+from ..exceptions import WrongResult
+
 
 class Action:
     parent = None
@@ -76,6 +79,22 @@ class Action:
                 return getattr(a, name)
         raise AttributeError(name)
 
-    async def __call__(self, *args, **kwargs):
-        print(f'{self}.__call__(*args, **kwargs) not implemented')
+    async def call(self, *args, **kwargs):
+        print(f'{self}.call(*args, **kwargs) not implemented')
         sys.exit(1)
+
+    def output_factory(self, *args, **kwargs):
+        return Output(*args, kwargs)
+
+    async def __call__(self, *args, **kwargs):
+        self.status = 'running'
+        self.output = self.output_factory(*args, **kwargs)
+        try:
+            result = await self.call(*args, **kwargs)
+        except WrongResult as e:
+            print(e)
+            self.status = 'fail'
+        else:
+            if self.status == 'running':
+                self.status = 'success'
+        return result

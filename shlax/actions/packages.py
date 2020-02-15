@@ -104,7 +104,7 @@ class Packages(Action):
                     print(f'{self.container.name} | Waiting for update ...')
                     await asyncio.sleep(1)
 
-    async def __call__(self, *args, **kwargs):
+    async def call(self, *args, **kwargs):
         cached = getattr(self, '_pagkages_mgr', None)
         if cached:
             self.mgr = cached

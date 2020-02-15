@@ -27,17 +27,9 @@ class Script(Action):
         super().__init__(**kwargs)
         self.actions = Actions(self, actions)
 
-    async def __call__(self, *args, **kwargs):
+    async def call(self, *args, **kwargs):
         for action in self.actions:
-            try:
-                await action(*args, **kwargs)
-            except WrongResult as e:
-                print(e)
-                action.status = 'fail'
-                break
-            else:
-                if action.status == 'running':
-                    action.status = 'success'
+            await action(*args, **kwargs)
 
     def shargs(self, *args, **kwargs):
         user = kwargs.pop('user', None)

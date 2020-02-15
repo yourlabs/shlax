@@ -112,7 +112,7 @@ async def test(*args, **kwargs):
 
 
 class ConsoleScript(cli2.ConsoleScript):
-    def __call__(self, *args, **kwargs):
+    def call(self, *args, **kwargs):
         self.shlaxfile = None
         shlaxfile = sys.argv.pop(1) if len(sys.argv) > 1 else ''
         if os.path.exists(shlaxfile.split('::')[0]):

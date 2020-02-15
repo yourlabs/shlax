@@ -8,7 +8,7 @@ import subprocess
 import sys
 import textwrap
 
-from ..proc import Proc, output
+from ..proc import Proc
 from ..image import Image
 from .localhost import Localhost
 
@@ -88,12 +88,12 @@ class Buildah(Localhost):
     def __repr__(self):
         return f'Build'
 
-    async def __call__(self, *args, debug=False, **kwargs):
+    async def call(self, *args, debug=False, **kwargs):
         if Proc.test or os.getuid() == 0 or self.parent.parent:
             self.ctr = (await self.exec('buildah', 'from', self.base, buildah=False)).out
             self.mnt = Path((await self.exec('buildah', 'mount', self.ctr, buildah=False)).out)
 
-            result = await super().__call__(*args, **kwargs)
+            result = await super().call(*args, **kwargs)
             #await self.umounts()
             #await self.umount()
             await self.exec('buildah', 'rm', self.ctr, raises=False, buildah=False)
@@ -113,7 +113,7 @@ class Buildah(Localhost):
             cli.shlaxfile.path,
             cli.parser.command.name,  # script name ?
         ]
-        output(' '.join(argv), 'EXECUTION', flush=True)
+        self.output(' '.join(argv), 'EXECUTION', flush=True)
 
         proc = await asyncio.create_subprocess_shell(
             shlex.join(argv),

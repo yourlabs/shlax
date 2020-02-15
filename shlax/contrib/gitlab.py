@@ -4,7 +4,7 @@ from shlax import *
 
 
 class GitLabCIConfig(Script):
-    async def __call__(self, *args, write=True, **kwargs):
+    async def call(self, *args, write=True, **kwargs):
         await super().__call__(*args, **kwargs)
         self.kwargs = kwargs
         for name, definition in self.context.items():
@@ -17,5 +17,5 @@ class GitLabCIConfig(Script):
 
 
 class Job(Action):
-    async def __call__(self, *args, **kwargs):
+    async def call(self, *args, **kwargs):
         self.context[self.args[0]] = self.kwargs
