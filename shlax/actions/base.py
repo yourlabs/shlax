@@ -14,6 +14,16 @@ class Action:
         r'([^ =]+)=': '{blue}\\1{red}={reset} ',
         r'=': '{blue}={reset} ',
     }
+    options = dict(
+        debug=dict(
+            alias='d',
+            default='visit',
+            help='''
+            Display debug output. Supports values (combinable): cmd,out,visit
+            '''.strip(),
+            immediate=True,
+        ),
+    )
 
     def __init__(self, *args, **kwargs):
         self.args = args

@@ -121,6 +121,10 @@ class ConsoleScript(cli2.ConsoleScript):
                 self[name] = cli2.Callable(
                     name,
                     action.callable(),
+                    options={
+                        k: cli2.Option(name=k, **v)
+                        for k, v in action.options.items()
+                    },
                     color=getattr(action, 'color', cli2.YELLOW),
                 )
         return super().__call__(*args, **kwargs)

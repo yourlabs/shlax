@@ -53,7 +53,8 @@ class Output:
         ).encode('utf8'))
 
         if flush:
-            self.write(b'\n')
+            if not line.endswith('\n'):
+                self.write(b'\n')
             self.flush()
 
     def cmd(self, line):
