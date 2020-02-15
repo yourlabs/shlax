@@ -53,12 +53,10 @@ class Packages(Action):
 
     def __init__(self, *packages, **kwargs):
         self.packages = []
-
         for package in packages:
             line = dedent(package).strip().replace('\n', ' ')
             self.packages += line.split(' ')
-
-        self.mgr = kwargs.pop('mgr') if 'mgr' in kwargs else None
+        super().__init__(*packages, **kwargs)
 
     @property
     def cache_root(self):
@@ -109,7 +107,7 @@ class Packages(Action):
         if cached:
             self.mgr = cached
         else:
-            mgr = await self.which(*self.mgrs.values())
+            mgr = await self.which(*self.mgrs.keys())
             if mgr:
                 self.mgr = mgr.split('/')[-1]
 
@@ -120,20 +118,18 @@ class Packages(Action):
         if not getattr(self, '_packages_upgraded', None):
             await self.update()
             await self.rexec(self.cmds['upgrade'])
-
-            # first run on container means inject visitor packages
-            packages = []
-            for sibbling in self.sibblings:
-                pp = getattr(sibbling, 'packages', None)
-                if pp:
-                    if isinstance(pp, list):
-                        packages += pp
-                    elif self.mgr in pp:
-                        packages += pp[self.mgr]
-
             self._packages_upgraded = True
-        else:
-            packages = self.packages
+
+        packages = []
+        for package in self.packages:
+            if ',' in package:
+                parts = package.split(',')
+                package = parts[0]
+                if self.mgr in parts[1:]:
+                    # include apt on apt
+                    packages.append(package)
+            else:
+                packages.append(package)
 
         await self.rexec(*self.cmds['install'].split(' ') + packages)
 

@@ -18,15 +18,16 @@ class Buildah(Localhost):
     The build script iterates over visitors and runs the build functions, it
     also provides wrappers around the buildah command.
     """
-    contextualize = Localhost.contextualize + ['mnt', 'ctr']
+    contextualize = Localhost.contextualize + ['mnt', 'ctr', 'mount']
 
-    def __init__(self, base, *args, commit=None, **kwargs):
+    def __init__(self, base, *args, commit=None, push=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.base = base
         self.mounts = dict()
         self.ctr = None
         self.mnt = None
-        self.commit = commit
+        self.image = Image(commit) if commit else None
+        self.push = push or os.getenv('CI')
 
     def shargs(self, *args, user=None, buildah=True, **kwargs):
         if not buildah:
@@ -68,19 +69,9 @@ class Buildah(Localhost):
     async def mount(self, src, dst):
         """Mount a host directory into the container."""
         target = self.mnt / str(dst)[1:]
-        await self.exec(f'mkdir -p {src} {target}')
-        await self.exec(f'mount -o bind {src} {target}')
+        await self.exec(f'mkdir -p {src} {target}', buildah=False)
+        await self.exec(f'mount -o bind {src} {target}', buildah=False)
         self.mounts[src] = dst
-
-    async def umounts(self):
-        """Unmount all mounted directories from the container."""
-        for src, dst in self.mounts.items():
-            await super().exec('umount', self.mnt / str(dst)[1:])
-
-    async def umount(self):
-        """Unmount the buildah container with buildah unmount."""
-        if self.ctr:
-            await super().exec(f'buildah unmount {self.ctr}')
 
     async def which(self, *cmd):
         """
@@ -95,9 +86,6 @@ class Buildah(Localhost):
                 if os.path.exists(p):
                     return p[len(str(self.mnt)):]
 
-    def __repr__(self):
-        return f'Build'
-
     @property
     def _compatible(self):
         return Proc.test or os.getuid() == 0 or getattr(self.parent, 'parent', None)
@@ -106,8 +94,8 @@ class Buildah(Localhost):
         if self._compatible:
             self.ctr = (await self.exec('buildah', 'from', self.base, buildah=False)).out
             self.mnt = Path((await self.exec('buildah', 'mount', self.ctr, buildah=False)).out)
-
-            return await super().call(*args, **kwargs)
+            result = await super().call(*args, **kwargs)
+            return result
 
         from shlax.cli import cli
         debug = kwargs.get('debug', False)
@@ -135,8 +123,49 @@ class Buildah(Localhost):
         await proc.communicate()
         cli.exit_code = await proc.wait()
 
+    async def commit(self):
+        self.sha = (await self.exec(
+            'buildah',
+            'commit',
+            '--format=' + self.image.format,
+            self.ctr,
+            buildah=False,
+        )).out
+
+        if self.image.tags:
+            tags = ' '.join([f'{self.image.repository}:{tag}' for tag in self.image.tags])
+            await self.exec('buildah', 'tag', self.sha, self.image.repository, tags, buildah=False)
+
+            if self.push:
+                user = os.getenv('DOCKER_USER')
+                passwd = os.getenv('DOCKER_PASS')
+                if user and passwd and os.getenv('CI') and self.registry:
+                    await self.exec(
+                        'podman',
+                        'login',
+                        '-u',
+                        user,
+                        '-p',
+                        passwd,
+                        self.registry,
+                        buildah=False,
+                    )
+
+                for tag in self.image.tags:
+                    await self.exec('podman', 'push', f'{self.image.repository}:{tag}', buildah=False)
+
     async def clean(self, *args, **kwargs):
+        if not self._compatible:
+            return
+
+        for src, dst in self.mounts.items():
+            await self.exec('umount', self.mnt / str(dst)[1:], buildah=False)
+
+        if self.status == 'success':
+            await self.commit()
+
         if self.mnt is not None:
             await self.exec('buildah', 'umount', self.ctr, buildah=False)
+
         if self.ctr is not None:
             await self.exec('buildah', 'rm', self.ctr, buildah=False)

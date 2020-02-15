@@ -105,7 +105,10 @@ class Action:
             self.output_fail(e)
             self.status = 'fail'
             proc = getattr(e, 'proc', None)
-            result = proc.rc if proc else 1
+            if proc:
+                result = proc.rc
+            else:
+                raise
         else:
             self.output_success()
             if self.status == 'running':
@@ -155,3 +158,11 @@ class Action:
 
     def kwargs_output(self):
         return self.kwargs
+
+    def action(self, action, *args, **kwargs):
+        p = action(*args, **kwargs)
+        for parent in self.parents():
+            if hasattr(parent, 'actions'):
+                break
+        p.parent = parent
+        return p
