@@ -29,6 +29,7 @@ test_args_params = [
             ('buildah', 'from', 'alpine'),
             ('buildah', 'mount', ''),
             ('buildah', 'run', '', '--', 'sh', '-euc', 'echo hi'),
+            ('buildah', 'umount', ''),
             ('buildah', 'rm', ''),
         ]
     ),
@@ -38,6 +39,7 @@ test_args_params = [
             ('buildah', 'from', 'alpine'),
             ('buildah', 'mount', ''),
             ('buildah', 'run', '--user', 'root', '', '--', 'sh', '-euc', 'echo hi'),
+            ('buildah', 'umount', ''),
             ('buildah', 'rm', ''),
         ]
     ),
@@ -47,6 +49,7 @@ test_args_params = [
             ('ssh', 'host', 'buildah', 'from', 'alpine'),
             ('ssh', 'host', 'buildah', 'mount', ''),
             ('ssh', 'host', 'buildah', 'run', '--user', 'root', '', '--', 'sh', '-euc', 'echo hi'),
+            ('ssh', 'host', 'buildah', 'umount', ''),
             ('ssh', 'host', 'buildah', 'rm', ''),
         ]
     ),
