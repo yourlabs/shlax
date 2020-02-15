@@ -85,7 +85,7 @@ class Action:
         for a in self.parents() + self.sibblings() + self.children():
             if name in a.contextualize:
                 return getattr(a, name)
-        raise AttributeError(name)
+        raise AttributeError(f'{type(self).__name__} has no {name}')
 
     async def call(self, *args, **kwargs):
         print(f'{self}.call(*args, **kwargs) not implemented')
@@ -101,23 +101,34 @@ class Action:
         self.status = 'running'
         try:
             result = await self.call(*args, **kwargs)
-        except WrongResult as e:
+        except Exception as e:
             self.output_fail(e)
             self.status = 'fail'
-            result = e.proc.rc
+            proc = getattr(e, 'proc', None)
+            result = proc.rc if proc else 1
         else:
             self.output_success()
             if self.status == 'running':
                 self.status = 'success'
+        finally:
+            clean = getattr(self, 'clean', None)
+            if clean:
+                await clean(*args, **kwargs)
         return result
 
     def output_start(self):
+        if self.kwargs.get('quiet', False):
+            return
         self.output.start(self)
 
     def output_fail(self, exception=None):
+        if self.kwargs.get('quiet', False):
+            return
         self.output.fail(self, exception)
 
     def output_success(self):
+        if self.kwargs.get('quiet', False):
+            return
         self.output.success(self)
 
     def __repr__(self):
@@ -130,15 +141,16 @@ class Action:
         return ' '.join([
             self.output.colors['pink1']
             + type(self).__name__
-            + self.output.colors['reset']
+            + self.output.colors['yellow']
         ] + list(self.args) + [
             f'{self.output.colors["blue"]}{k}{self.output.colors["gray"]}={self.output.colors["green2"]}{v}'
             for k, v in self.kwargs_output().items()
         ] + [self.output.colors['reset']])
 
     def callable(self):
+        from ..targets import Localhost
         async def cb(*a, **k):
-            return await self(*a, **k)
+            return await Localhost(self, quiet=True)(*a, **k)
         return cb
 
     def kwargs_output(self):

@@ -4,6 +4,9 @@ inner = Run()
 other = Run('ls')
 middle = Buildah('alpine', inner, other)
 outer = Localhost(middle)
+middle = outer.actions[0]
+other = middle.actions[1]
+inner = middle.actions[0]
 
 
 def test_action_init_args():

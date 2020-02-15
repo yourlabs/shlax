@@ -58,8 +58,9 @@ class Output:
 
     def cmd(self, line):
         self(
-            self.colorize(251, '+ ')
+            self.colorize(251, '+')
             + '\x1b[1;38;5;15;48;5;244m'
+            + ' '
             + self.highlight(line, 'bash')
             + self.colors['reset'],
             highlight=False

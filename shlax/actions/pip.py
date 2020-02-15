@@ -12,10 +12,10 @@ class Pip(Action):
     def __init__(self, *pip_packages, pip=None, requirements=None):
         self.pip_packages = pip_packages
         self.requirements = requirements
+        super().__init__(*pip_packages, pip=pip, requirements=requirements)
 
     async def call(self, *args, **kwargs):
-        breakpoint()
-        self.pip = await self.which(('pip3', 'pip', 'pip2'))
+        self.pip = await self.which('pip3', 'pip', 'pip2')
         if not self.pip:
             raise Exception('Could not find pip command')
 

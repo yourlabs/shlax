@@ -49,17 +49,27 @@ class Buildah(Localhost):
 
     async def config(self, line):
         """Run buildah config."""
-        return await self.exec(f'buildah config {line} {self.ctr}')
+        return await self.exec(f'buildah config {line} {self.ctr}', buildah=False)
 
-    async def copy(self, src, dst):
+    async def mkdir(self, *dirs):
+        return await self.exec(*['mkdir', '-p'] + list(dirs))
+
+    async def copy(self, *args):
         """Run buildah copy to copy a file from host into container."""
-        return await self.exec(f'buildah copy {self.ctr} {src} {self.mnt}{dst}')
+        src = args[:-1]
+        dst = args[-1]
+        await self.mkdir(dst)
+
+        args = ['buildah', 'copy', self.ctr] + list(
+            [str(a) for a in src]
+        ) + [str(dst)]
+        return await self.exec(*args, buildah=False)
 
     async def mount(self, src, dst):
         """Mount a host directory into the container."""
         target = self.mnt / str(dst)[1:]
-        await super().exec(f'mkdir -p {src} {target}')
-        await super().exec(f'mount -o bind {src} {target}')
+        await self.exec(f'mkdir -p {src} {target}')
+        await self.exec(f'mount -o bind {src} {target}')
         self.mounts[src] = dst
 
     async def umounts(self):
@@ -88,18 +98,19 @@ class Buildah(Localhost):
     def __repr__(self):
         return f'Build'
 
-    async def call(self, *args, debug=False, **kwargs):
-        if Proc.test or os.getuid() == 0 or self.parent.parent:
+    @property
+    def _compatible(self):
+        return Proc.test or os.getuid() == 0 or getattr(self.parent, 'parent', None)
+
+    async def call(self, *args, **kwargs):
+        if self._compatible:
             self.ctr = (await self.exec('buildah', 'from', self.base, buildah=False)).out
             self.mnt = Path((await self.exec('buildah', 'mount', self.ctr, buildah=False)).out)
 
-            result = await super().call(*args, **kwargs)
-            #await self.umounts()
-            #await self.umount()
-            await self.exec('buildah', 'rm', self.ctr, raises=False, buildah=False)
-            return result
+            return await super().call(*args, **kwargs)
 
         from shlax.cli import cli
+        debug = kwargs.get('debug', False)
         # restart under buildah unshare environment
         argv = [
             'buildah', 'unshare',
@@ -123,3 +134,8 @@ class Buildah(Localhost):
         )
         await proc.communicate()
         cli.exit_code = await proc.wait()
+
+    async def clean(self, *args, **kwargs):
+        #await self.umounts()
+        #await self.umount()
+        await self.exec('buildah', 'rm', self.ctr, raises=False, buildah=False)

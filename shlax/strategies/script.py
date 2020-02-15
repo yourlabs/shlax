@@ -14,6 +14,7 @@ class Actions(list):
             self.append(action)
 
     def append(self, value):
+        value = copy.deepcopy(value)
         value.parent = self.owner
         value.status = 'pending'
         super().append(value)
@@ -21,7 +22,7 @@ class Actions(list):
 
 class Script(Action):
     root = '/'
-    contextualize = ['shargs', 'exec', 'rexec', 'env', 'which']
+    contextualize = ['shargs', 'exec', 'rexec', 'env', 'which', 'copy']
 
     def __init__(self, *actions, **kwargs):
         super().__init__(**kwargs)
@@ -77,3 +78,7 @@ class Script(Action):
                 p = os.path.join(self.root, path[1:], c)
                 if os.path.exists(p):
                     return p[len(str(self.root)):]
+
+    async def copy(self, *args):
+        args = ['cp', '-ra'] + list(args)
+        return await self.exec(*args)
