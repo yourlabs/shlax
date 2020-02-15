@@ -136,6 +136,7 @@ class Buildah(Localhost):
         cli.exit_code = await proc.wait()
 
     async def clean(self, *args, **kwargs):
-        #await self.umounts()
-        #await self.umount()
-        await self.exec('buildah', 'rm', self.ctr, raises=False, buildah=False)
+        if self.mnt:
+            await self.exec('buildah', 'umount', self.ctr, buildah=False)
+        if self.ctr:
+            await self.exec('buildah', 'rm', self.ctr, buildah=False)
