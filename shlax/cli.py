@@ -128,7 +128,7 @@ class ConsoleScript(cli2.ConsoleScript):
                 )
         return super().__call__(*args, **kwargs)
 
-    def call(self, command):
+    def __call__(self, command):
         args = self.parser.funcargs
         kwargs = self.parser.funckwargs
         breakpoint()
