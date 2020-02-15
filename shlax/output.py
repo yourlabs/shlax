@@ -89,24 +89,24 @@ class Output:
 
     def start(self, action):
         self(''.join([
-            self.colors['orange'],
-            '[!] START ',
+            self.colors['orangebold'],
+            '⚠ START ',
             self.colors['reset'],
             action.colorized(),
         ]))
 
     def success(self, action):
         self(''.join([
-            self.colors['green'],
-            '[√] SUCCESS ',
+            self.colors['greenbold'],
+            '✔ SUCCESS ',
             self.colors['reset'],
             action.colorized(),
         ]))
 
     def fail(self, action, exception=None):
         self(''.join([
-            self.colors['red'],
-            '[x] FAIL ',
+            self.colors['redbold'],
+            '✘ FAIL ',
             self.colors['reset'],
             action.colorized(),
         ]))

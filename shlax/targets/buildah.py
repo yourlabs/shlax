@@ -124,6 +124,9 @@ class Buildah(Localhost):
         cli.exit_code = await proc.wait()
 
     async def commit(self):
+        if not self.image:
+            return
+
         self.sha = (await self.exec(
             'buildah',
             'commit',

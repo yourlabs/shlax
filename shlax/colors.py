@@ -9,8 +9,8 @@ colors = dict(
     blue3='\u001b[38;5;81m',
     blue4='\u001b[38;5;111m',
     blue5='\u001b[38;5;27m',
-    green='\u001b[38;5;2m',
-    green1='\u001b[38;5;10m',
+    green='\u001b[38;5;10m',
+    green1='\u001b[38;5;2m',
     green2='\u001b[38;5;46m',
     green3='\u001b[38;5;47m',
     green4='\u001b[38;5;48m',
@@ -61,3 +61,8 @@ colors = dict(
     orange5='\u001b[38;5;166m',
     reset='\u001b[0m',
 )
+
+colors.update({
+    k + 'bold': v.replace('[', '[1;')
+    for k, v in colors.items()
+})
