@@ -16,9 +16,9 @@ def write():
 
 def test_output_regexps(write):
     output = Output(
-        regexps={'.*': {0: 0}},
+        regexps={'^(.*)$': '{red}\\1'},
         write=write,
         flush=lambda: None,
     )
     output('foo')
-    assert write.output == output.colorize(0, 'foo')
+    assert write.output.strip() == output.colors['red'] + 'foo' + output.colors['reset']

@@ -8,8 +8,11 @@ from ..exceptions import WrongResult
 class Action:
     parent = None
     contextualize = []
-    colorize = {
-        '[^ ]*([^:]*):': {1: 0},
+    regexps = {
+        r'([\w]+):': '{cyan}\\1{gray}:{reset}',
+        r'(^|\n)( *)\- ': '\\1\\2{red}-{reset} ',
+        r'([^ =]+)=': '{blue}\\1{red}={reset} ',
+        r'=': '{blue}={reset} ',
     }
 
     def __init__(self, *args, **kwargs):
@@ -50,6 +53,8 @@ class Action:
 
 
     def sibblings(self, f=None, **filters):
+        if not self.parent:
+            return []
         return self.actions_filter(
             [a for a in self.parent.actions if a is not self],
             f, **filters
@@ -87,23 +92,54 @@ class Action:
         sys.exit(1)
 
     def output_factory(self, *args, **kwargs):
-        kwargs.setdefault('regexps', self.colorize)
+        kwargs.setdefault('regexps', self.regexps)
         return Output(*args, **kwargs)
 
     async def __call__(self, *args, **kwargs):
-        self.status = 'running'
         self.output = self.output_factory(*args, **kwargs)
+        self.output_start()
+        self.status = 'running'
         try:
             result = await self.call(*args, **kwargs)
         except WrongResult as e:
-            print(e)
+            self.output_fail(e)
             self.status = 'fail'
+            result = e.proc.rc
         else:
+            self.output_success()
             if self.status == 'running':
                 self.status = 'success'
         return result
+
+    def output_start(self):
+        self.output.start(self)
+
+    def output_fail(self, exception=None):
+        self.output.fail(self, exception)
+
+    def output_success(self):
+        self.output.success(self)
+
+    def __repr__(self):
+        return ' '.join([type(self).__name__] + list(self.args) + [
+            f'{k}={v}'
+            for k, v in self.kwargs.items()
+        ])
+
+    def colorized(self):
+        return ' '.join([
+            self.output.colors['pink1']
+            + type(self).__name__
+            + self.output.colors['reset']
+        ] + list(self.args) + [
+            f'{self.output.colors["blue"]}{k}{self.output.colors["gray"]}={self.output.colors["green2"]}{v}'
+            for k, v in self.kwargs_output().items()
+        ] + [self.output.colors['reset']])
 
     def callable(self):
         async def cb(*a, **k):
             return await self(*a, **k)
         return cb
+
+    def kwargs_output(self):
+        return self.kwargs

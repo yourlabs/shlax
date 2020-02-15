@@ -1,18 +1,12 @@
 import re
 import sys
 
+from .colors import colors
+
 
 class Output:
     prefixes = dict()
-    colors = (
-        '\x1b[1;36;45m',
-        '\x1b[1;36;41m',
-        '\x1b[1;36;40m',
-        '\x1b[1;37;45m',
-        '\x1b[1;32m',
-        '\x1b[1;37;44m',
-        '\u001b[30;1m',
-    )
+    colors = colors
 
     def color(self, code=None):
         if not code:
@@ -55,15 +49,19 @@ class Output:
                 else ''
             )
             + self.highlight(line, highlight)
+            + self.colors['reset']
         ).encode('utf8'))
 
         if flush:
+            self.write(b'\n')
             self.flush()
 
     def cmd(self, line):
         self(
             self.colorize(251, '+ ')
-            + self.highlight(line, 'bash'),
+            + '\x1b[1;38;5;15;48;5;244m'
+            + self.highlight(line, 'bash')
+            + self.colors['reset'],
             highlight=False
         )
 
@@ -84,14 +82,30 @@ class Output:
             return line
 
         for regexp, colors in self.regexps.items():
-            match = re.match(regexp, line)
-            if not match:
-                continue
-
-            for group, color in colors.items():
-                res = match.group(group)
-                if not res:
-                    continue
-                line = line.replace(res, self.colorize(color, res))
+            line = re.sub(regexp, colors.format(**self.colors), line)
 
         return line
+
+    def start(self, action):
+        self(''.join([
+            self.colors['orange'],
+            '[!] START ',
+            self.colors['reset'],
+            action.colorized(),
+        ]))
+
+    def success(self, action):
+        self(''.join([
+            self.colors['green'],
+            '[√] SUCCESS ',
+            self.colors['reset'],
+            action.colorized(),
+        ]))
+
+    def fail(self, action, exception=None):
+        self(''.join([
+            self.colors['red'],
+            '[x] FAIL ',
+            self.colors['reset'],
+            action.colorized(),
+        ]))
