@@ -7,6 +7,14 @@ from .colors import colors
 class Output:
     prefixes = dict()
     colors = colors
+    prefix_colors = (
+        '\x1b[1;36;45m',
+        '\x1b[1;36;41m',
+        '\x1b[1;36;40m',
+        '\x1b[1;37;45m',
+        '\x1b[1;32m',
+        '\x1b[1;37;44m',
+    )
 
     def color(self, code=None):
         if not code:
@@ -27,9 +35,7 @@ class Output:
 
     def __call__(self, line, highlight=True, flush=True):
         if self.prefix and self.prefix not in self.prefixes:
-            self.prefixes[self.prefix] = (
-                self.colors[len([*self.prefixes.keys()]) - 1]
-            )
+            self.prefixes[self.prefix] = self.prefix_colors[len(self.prefixes)]
             if len(self.prefix) > self.prefix_length:
                 self.prefix_length = len(self.prefix)
 
@@ -44,6 +50,7 @@ class Output:
                 + prefix_padding
                 + self.prefix
                 + ' '
+                + self.colors['reset']
                 + '| '
                 if self.prefix
                 else ''
@@ -88,26 +95,38 @@ class Output:
 
         return line
 
+    def clean(self, action):
+        if self.debug is True or 'visit' in str(self.debug):
+            self(''.join([
+                self.colors['bluebold'],
+                '+ CLEAN ',
+                self.colors['reset'],
+                action.colorized(),
+            ]))
+
     def start(self, action):
-        self(''.join([
-            self.colors['orangebold'],
-            '⚠ START ',
-            self.colors['reset'],
-            action.colorized(),
-        ]))
+        if self.debug is True or 'visit' in str(self.debug):
+            self(''.join([
+                self.colors['orangebold'],
+                '⚠ START ',
+                self.colors['reset'],
+                action.colorized(),
+            ]))
 
     def success(self, action):
-        self(''.join([
-            self.colors['greenbold'],
-            '✔ SUCCESS ',
-            self.colors['reset'],
-            action.colorized(),
-        ]))
+        if self.debug is True or 'visit' in str(self.debug):
+            self(''.join([
+                self.colors['greenbold'],
+                '✔ SUCCESS ',
+                self.colors['reset'],
+                action.colorized(),
+            ]))
 
     def fail(self, action, exception=None):
-        self(''.join([
-            self.colors['redbold'],
-            '✘ FAIL ',
-            self.colors['reset'],
-            action.colorized(),
-        ]))
+        if self.debug is True or 'visit' in str(self.debug):
+            self(''.join([
+                self.colors['redbold'],
+                '✘ FAIL ',
+                self.colors['reset'],
+                action.colorized(),
+            ]))

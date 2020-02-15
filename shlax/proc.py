@@ -22,9 +22,9 @@ class PrefixStreamProtocol(asyncio.subprocess.SubprocessStreamProtocol):
         super().__init__(*args, **kwargs)
 
     def pipe_data_received(self, fd, data):
-        if (self.output.debug is True or 'out' in str(self.output.debug)) and fd in (1, 2):
-            self.output(data, flush=False)
-            sys.stdout.flush()
+        if self.output.debug is True or 'out' in str(self.output.debug):
+            if fd in (1, 2):
+                self.output(data)
         super().pipe_data_received(fd, data)
 
 

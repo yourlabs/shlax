@@ -101,7 +101,7 @@ class Action:
 
     def output_factory(self, *args, **kwargs):
         kwargs.setdefault('regexps', self.regexps)
-        return Output(*args, **kwargs)
+        return Output(**kwargs)
 
     async def __call__(self, *args, **kwargs):
         self.call_args = args
@@ -126,6 +126,7 @@ class Action:
         finally:
             clean = getattr(self, 'clean', None)
             if clean:
+                self.output.clean(self)
                 await clean(*args, **kwargs)
         return result
 
