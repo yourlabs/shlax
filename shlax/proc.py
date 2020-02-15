@@ -22,16 +22,16 @@ class PrefixStreamProtocol(asyncio.subprocess.SubprocessStreamProtocol):
         super().__init__(*args, **kwargs)
 
     def pipe_data_received(self, fd, data):
-        if (self.debug is True or 'out' in str(self.debug)) and fd in (1, 2):
+        if (self.output.debug is True or 'out' in str(self.output.debug)) and fd in (1, 2):
             self.output(data, flush=False)
             sys.stdout.flush()
         super().pipe_data_received(fd, data)
 
 
-def protocol_factory(prefix):
+def protocol_factory(output):
     def _p():
         return PrefixStreamProtocol(
-            prefix,
+            output,
             limit=asyncio.streams._DEFAULT_LIMIT,
             loop=asyncio.events.get_event_loop()
         )
@@ -79,12 +79,16 @@ class Proc:
                 args = ['sh', '-euc', ' '.join(args)]
         return args
 
+    def output_factory(self, *args, **kwargs):
+        args = tuple(self.prefix) + args
+        return Output(*args, kwargs)
+
     async def __call__(self, wait=True):
         if self.called:
             raise Exception('Already called: ' + self.cmd)
 
         if self.debug is True or 'cmd' in str(self.debug):
-            output.cmd(self.cmd, self.prefix)
+            self.output.cmd(self.cmd)
 
         if self.test:
             if self.test is True:
@@ -94,7 +98,7 @@ class Proc:
 
         loop = asyncio.events.get_event_loop()
         transport, protocol = await loop.subprocess_exec(
-            protocol_factory(self.prefix), *self.args)
+            protocol_factory(self.output), *self.args)
         self.proc = asyncio.subprocess.Process(transport, protocol, loop)
         self.called = True
 

@@ -3,6 +3,12 @@ from shlax.contrib.gitlab import *
 
 PYTEST = 'py.test -svv tests'
 
+build = Buildah('alpine',
+    Copy('shlax', 'setup.py', '/app'),
+    Pip('/app'),
+    commit='yourlabs/shlax',
+)
+
 gitlabci = GitLabCIConfig(
     Job('test',
         stage='test',

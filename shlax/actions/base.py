@@ -8,6 +8,9 @@ from ..exceptions import WrongResult
 class Action:
     parent = None
     contextualize = []
+    colorize = {
+        '[^ ]*([^:]*):': {1: 0},
+    }
 
     def __init__(self, *args, **kwargs):
         self.args = args
@@ -84,7 +87,8 @@ class Action:
         sys.exit(1)
 
     def output_factory(self, *args, **kwargs):
-        return Output(*args, kwargs)
+        kwargs.setdefault('regexps', self.colorize)
+        return Output(*args, **kwargs)
 
     async def __call__(self, *args, **kwargs):
         self.status = 'running'
@@ -98,3 +102,8 @@ class Action:
             if self.status == 'running':
                 self.status = 'success'
         return result
+
+    def callable(self):
+        async def cb(*a, **k):
+            return await self(*a, **k)
+        return cb

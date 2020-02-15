@@ -53,7 +53,7 @@ class Buildah(Localhost):
 
     async def copy(self, src, dst):
         """Run buildah copy to copy a file from host into container."""
-        return await self.exec(f'buildah copy {self.ctr} {src} {dst}')
+        return await self.exec(f'buildah copy {self.ctr} {src} {self.mnt}{dst}')
 
     async def mount(self, src, dst):
         """Mount a host directory into the container."""

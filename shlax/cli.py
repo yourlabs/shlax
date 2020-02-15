@@ -24,7 +24,6 @@ async def runall(*args, **kwargs):
 
 @cli2.option('debug', alias='d', help='Display debug output.')
 async def test(*args, **kwargs):
-    breakpoint()
     """Run podctl test over a bunch of paths."""
     report = []
 
@@ -112,27 +111,19 @@ async def test(*args, **kwargs):
 
 
 class ConsoleScript(cli2.ConsoleScript):
-    def call(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs):
         self.shlaxfile = None
         shlaxfile = sys.argv.pop(1) if len(sys.argv) > 1 else ''
         if os.path.exists(shlaxfile.split('::')[0]):
             self.shlaxfile = Shlaxfile()
             self.shlaxfile.parse(shlaxfile)
             for name, action in self.shlaxfile.actions.items():
-                async def cb(*args, **kwargs):
-                    return await Localhost(action)(*args, **kwargs)
                 self[name] = cli2.Callable(
                     name,
-                    cb,
+                    action.callable(),
                     color=getattr(action, 'color', cli2.YELLOW),
                 )
         return super().__call__(*args, **kwargs)
-
-    def __call__(self, command):
-        args = self.parser.funcargs
-        kwargs = self.parser.funckwargs
-        breakpoint()
-        return command(*args, **kwargs)
 
     def call(self, command):
         try:

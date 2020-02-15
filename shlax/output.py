@@ -1,6 +1,9 @@
+import re
+import sys
 
 
 class Output:
+    prefixes = dict()
     colors = (
         '\x1b[1;36;45m',
         '\x1b[1;36;41m',
@@ -8,53 +11,59 @@ class Output:
         '\x1b[1;37;45m',
         '\x1b[1;32m',
         '\x1b[1;37;44m',
+        '\u001b[30;1m',
     )
 
-    def __init__(self, prefix=None):
-        self.prefix = prefix
-        self.prefixes = dict()
-        self.prefix_length = 0
+    def color(self, code=None):
+        if not code:
+            return '\u001b[0m'
+        code = str(code)
+        return u"\u001b[38;5;" + code + "m"
 
-    def call(self, line, prefix, highlight=True, flush=True):
-        if prefix and prefix not in self.prefixes:
-            self.prefixes[prefix] = (
+    def colorize(self, code, content):
+        return self.color(code) + content + self.color()
+
+    def __init__(self, prefix=None, regexps=None, debug=True, write=None, flush=None):
+        self.prefix = prefix
+        self.debug = debug
+        self.prefix_length = 0
+        self.regexps = regexps or dict()
+        self.write = write or sys.stdout.buffer.write
+        self.flush = flush or sys.stdout.flush
+
+    def __call__(self, line, highlight=True, flush=True):
+        if self.prefix and self.prefix not in self.prefixes:
+            self.prefixes[self.prefix] = (
                 self.colors[len([*self.prefixes.keys()]) - 1]
             )
-            if len(prefix) > self.prefix_length:
-                self.prefix_length = len(prefix)
+            if len(self.prefix) > self.prefix_length:
+                self.prefix_length = len(self.prefix)
 
-        prefix_color = self.prefixes[prefix] if prefix else ''
-        prefix_padding = '.' * (self.prefix_length - len(prefix) - 2) if prefix else ''
+        prefix_color = self.prefixes[self.prefix] if self.prefix else ''
+        prefix_padding = '.' * (self.prefix_length - len(self.prefix) - 2) if self.prefix else ''
         if prefix_padding:
             prefix_padding = ' ' + prefix_padding + ' '
 
-        sys.stdout.buffer.write((
+        self.write((
             (
                 prefix_color
                 + prefix_padding
-                + prefix
+                + self.prefix
                 + ' '
-                + Back.RESET
-                + Style.RESET_ALL
-                + Fore.LIGHTBLACK_EX
                 + '| '
-                + Style.RESET_ALL
-                if prefix
+                if self.prefix
                 else ''
             )
             + self.highlight(line, highlight)
         ).encode('utf8'))
 
         if flush:
-            sys.stdout.flush()
+            self.flush()
 
-    def cmd(self, line, prefix):
+    def cmd(self, line):
         self(
-            Fore.LIGHTBLACK_EX
-            + '+ '
-            + Style.RESET_ALL
+            self.colorize(251, '+ ')
             + self.highlight(line, 'bash'),
-            prefix,
             highlight=False
         )
 
@@ -73,4 +82,16 @@ class Output:
             or '\\e[' in line
         ):
             return line
+
+        for regexp, colors in self.regexps.items():
+            match = re.match(regexp, line)
+            if not match:
+                continue
+
+            for group, color in colors.items():
+                res = match.group(group)
+                if not res:
+                    continue
+                line = line.replace(res, self.colorize(color, res))
+
         return line
