@@ -1,14 +1,14 @@
 build:
   image: yourlabs/shlax
-  script: pip install -U .[test] && py.test -svv tests
-  stage: test
+  script: ./shlaxfile.py build
+  stage: build
 pypi:
   image: yourlabs/python
   only:
   - tags
-  script: pypi-release
+  script: ./shlaxfile.py pypi
   stage: deploy
 test:
-  image: yourlabs/python
-  script: pip install -U .[test] && py.test -svv tests
+  image: yourlabs/shlax
+  script: ./shlaxfile.py test
   stage: test

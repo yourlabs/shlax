@@ -3,9 +3,16 @@ import yaml
 from shlax import *
 
 
-class GitLabCIConfig(Script):
+class GitLabCI(Script):
     async def call(self, *args, write=True, **kwargs):
-        output = yaml.dump(self.kwargs)
+        output = dict()
+        for key, value in self.kwargs.items():
+            if isinstance(value, dict):
+                output[key] = value
+                output[key]['script'] = './shlaxfile.py ' + key
+            else:
+                output[key] = value
+        output = yaml.dump(output)
         if kwargs['debug'] is True:
             self.output(output)
         if write:

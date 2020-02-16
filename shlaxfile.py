@@ -3,32 +3,42 @@ from shlax.contrib.gitlab import *
 
 PYTEST = 'py.test -svv tests'
 
-build = Buildah('alpine',
+build = Buildah(
     Copy('shlax/', 'setup.py', '/app'),
     Pip('/app'),
     commit='yourlabs/shlax',
-)
-
-gitlabci = GitLabCIConfig(
-    build=dict(
-        stage='test',
-        image='yourlabs/shlax',
-        script='pip install -U .[test] && ' + PYTEST,
-    ),
-    test=dict(
-        stage='test',
-        image='yourlabs/python',
-        script='pip install -U .[test] && ' + PYTEST,
-    ),
-    pypi=dict(
-        stage='deploy',
-        image='yourlabs/python',
-        script='pypi-release',
-        only=['tags']
-    ),
+    workdir='/app',
 )
 
 test = Script(
-    gitlabci,
-    Run('gitlab-runner exec docker test'),
+    Pip('.[test]'),
+    Run(PYTEST),
+)
+
+buildtest = Docker(
+    *test.actions,
+    mount={'.': '/app'},
+    workdir='/app',
+)
+
+pypi = Run(
+    'pypi-release',
+    stage='deploy',
+    image='yourlabs/python',
+)
+
+gitlabci = GitLabCI(
+    build=dict(
+        stage='build',
+        image='yourlabs/shlax',
+    ),
+    test=dict(
+        stage='test',
+        image='yourlabs/shlax',
+    ),
+    pypi=dict(
+        stage='deploy',
+        only=['tags'],
+        image='yourlabs/python',
+    ),
 )

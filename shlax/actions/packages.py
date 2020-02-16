@@ -113,7 +113,7 @@ class Packages(Action):
         else:
             mgr = await self.which(*self.mgrs.keys())
             if mgr:
-                self.mgr = mgr.split('/')[-1]
+                self.mgr = mgr[0].split('/')[-1]
 
         if not self.mgr:
             raise Exception('Packages does not yet support this distro')

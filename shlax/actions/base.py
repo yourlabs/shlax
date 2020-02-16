@@ -1,4 +1,6 @@
+import functools
 import inspect
+import importlib
 import sys
 
 from ..output import Output
@@ -164,16 +166,46 @@ class Action:
     def callable(self):
         from ..targets import Localhost
         async def cb(*a, **k):
-            return await Localhost(self, quiet=True)(*a, **k)
+            from shlax.cli import cli
+            script = Localhost(self, quiet=True)
+            result = await script(*a, **k)
+
+            success = functools.reduce(
+                lambda a, b: a + b,
+                [1 for c in script.children() if c.status == 'success'] or [0])
+            if success:
+                script.output.success(f'{success} PASS')
+
+            failures = functools.reduce(
+                lambda a, b: a + b,
+                [1 for c in script.children() if c.status == 'fail'] or [0])
+            if failures:
+                script.output.fail(f'{failures} FAIL')
+            cli.exit_code = failures
+            return result
         return cb
 
     def kwargs_output(self):
         return self.kwargs
 
     def action(self, action, *args, **kwargs):
+        if isinstance(action, str):
+            import cli2
+            a = cli2.Callable.factory(action).target
+            if not a:
+                a = cli2.Callable.factory(
+                    '.'.join(['shlax', action])
+                ).target
+            if a:
+                action = a
+
         p = action(*args, **kwargs)
         for parent in self.parents():
             if hasattr(parent, 'actions'):
                 break
         p.parent = parent
+        if 'actions' not in self.__dict__:
+            # "mutate" to Strategy
+            from ..strategies.script import Actions
+            self.actions = Actions(self, [p])
         return p
