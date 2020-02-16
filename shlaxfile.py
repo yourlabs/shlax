@@ -34,7 +34,7 @@ gitlabci = GitLabCI(
     ),
     test=dict(
         stage='test',
-        image='yourlabs/shlax',
+        image=build,
     ),
     pypi=dict(
         stage='deploy',

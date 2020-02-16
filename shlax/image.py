@@ -61,4 +61,4 @@ class Image:
         return await action.exec(*args, **self.kwargs)
 
     def __str__(self):
-        return self.repository
+        return f'{self.repository}:{self.tags[-1]}'

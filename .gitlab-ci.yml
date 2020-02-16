@@ -1,14 +1,8 @@
-build:
-  image: yourlabs/shlax
-  script: ./shlaxfile.py build
-  stage: build
+build: {image: yourlabs/shlax, script: ./shlaxfile.py build, stage: build}
 pypi:
   image: yourlabs/python
-  only:
-  - tags
+  only: [tags]
   script: ./shlaxfile.py pypi
   stage: deploy
-test:
-  image: yourlabs/shlax
-  script: ./shlaxfile.py test
-  stage: test
+test: {image: 'yourlabs/shlax:$CI_COMMIT_SHORT_SHA', script: ./shlaxfile.py test,
+  stage: test}
