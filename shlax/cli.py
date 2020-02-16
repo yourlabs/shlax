@@ -10,6 +10,7 @@ import asyncio
 import cli2
 import copy
 import inspect
+import importlib
 import glob
 import os
 import sys
@@ -24,9 +25,32 @@ class ConsoleScript(cli2.ConsoleScript):
         self.shlaxfile = None
         shlaxfile = sys.argv.pop(1) if len(sys.argv) > 1 else ''
         if shlaxfile:
-            if os.path.exists(shlaxfile):
-                self.shlaxfile = Shlaxfile()
-                self.shlaxfile.parse(shlaxfile)
+            if not os.path.exists(shlaxfile):
+                try:    # missing shlaxfile, what are we gonna do !!
+                    mod = importlib.import_module('shlax.repo.' + shlaxfile)
+                except ImportError:
+                    print('Could not find ' + shlaxfile)
+                    self.exit_code = 1
+                    return
+                shlaxfile = mod.__file__
+
+            self.shlaxfile = Shlaxfile()
+            self.shlaxfile.parse(shlaxfile)
+            if len(self.shlaxfile.actions) == 1 and 'main' in self.shlaxfile.actions:
+                action = self.shlaxfile.actions['main']
+                self._doc = inspect.getdoc(action)
+                for name, doc in self.shlaxfile.actions['main'].doc.items():
+                    self[name] = cli2.Callable(
+                        name,
+                        action.callable(),
+                        options={
+                            k: cli2.Option(name=k, **v)
+                            for k, v in action.options.items()
+                        },
+                        color=getattr(action, 'color', cli2.YELLOW),
+                        doc=doc,
+                    )
+            else:
                 for name, action in self.shlaxfile.actions.items():
                     self[name] = cli2.Callable(
                         name,
@@ -37,24 +61,13 @@ class ConsoleScript(cli2.ConsoleScript):
                         },
                         color=getattr(action, 'color', cli2.YELLOW),
                     )
-            else:
-                try:
-                    mod = importlib.import_module('shlax.repo.' + shlaxfile)
-                except ImportError:
-                    print('Could not find ' + shlaxfile)
-                    self.exit_code = 1
-                    return
         else:
             from shlax import repo
             path = repo.__path__._path[0]
             for shlaxfile in glob.glob(os.path.join(path, '*.py')):
                 name = shlaxfile.split('/')[-1].split('.')[0]
-                import importlib
                 mod = importlib.import_module('shlax.repo.' + name)
-                for k, v in mod.__dict__.items():
-                    if callable(v):
-                        break
-                self[name] = cli2.Callable(name, v, doc='lol')
+                self[name] = cli2.Callable(name, mod)
 
         return super().__call__(*args, **kwargs)
 

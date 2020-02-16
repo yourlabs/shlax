@@ -3,6 +3,17 @@ from .script import Script
 
 
 class Container(Script):
+    """
+    Wolcome to crazy container control cli
+
+    Such wow
+    """
+    doc = dict(
+        build='Execute the Build script',
+        test='Execute the Test script (if any)',
+        push='Push the container (if Build script defines commit kwarg)',
+    )
+
     async def call(self, *args, **kwargs):
         if not args or 'build' in args:
             await self.kwargs['build'](**kwargs)

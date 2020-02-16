@@ -20,6 +20,7 @@ class Shlaxfile:
                 self.actions[name] = value
             elif callable(value) and getattr(value, '__name__', '').startswith('test_'):
                 self.tests[value.__name__] = value
+
         self.paths.append(path)
 
     @property

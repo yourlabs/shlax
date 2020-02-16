@@ -1,4 +1,8 @@
 #!/usr/bin/env shlax
+"""
+Manage a traefik container maintained by Shlax community.
+"""
+
 from shlax import *
 
 main = Container(
