@@ -3,12 +3,13 @@ build:
     key: cache
     paths: [.cache]
   image: yourlabs/shlax
-  script: CACHE_DIR=$(pwd)/.cache ./shlaxfile.py -d shlax build push
+  script: pip install -U --user -e . && CACHE_DIR=$(pwd)/.cache ./shlaxfile.py -d
+    shlax build push
   stage: build
 pypi:
   image: yourlabs/python
   only: [tags]
   script: pypi-release
   stage: deploy
-test: {image: 'yourlabs/shlax:$CI_COMMIT_SHORT_SHA', script: ./shlaxfile.py -d test,
-  stage: test}
+test: {image: 'yourlabs/shlax:$CI_COMMIT_SHORT_SHA', script: pip install -U --user
+    -e . && ./shlaxfile.py -d test, stage: test}
