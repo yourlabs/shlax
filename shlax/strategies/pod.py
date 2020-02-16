@@ -5,7 +5,7 @@ from .script import Script
 class Container(Script):
     async def call(self, *args, **kwargs):
         if not args or 'build' in args:
-            await self.kwargs['build'](*args, **kwargs)
+            await self.kwargs['build'](**kwargs)
         self.image = self.kwargs['build'].image
 
         if not args or 'test' in args:
@@ -15,7 +15,7 @@ class Container(Script):
                 image=self.image,
                 mount={'.': '/app'},
                 workdir='/app',
-            )(*args, **kwargs)
+            )(**kwargs)
 
         if not args or 'push' in args:
             await self.kwargs['build'](method='push', **kwargs)
