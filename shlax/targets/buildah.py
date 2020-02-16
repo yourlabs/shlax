@@ -119,19 +119,6 @@ class Buildah(Localhost):
         ]
 
         await self.exec(*argv)
-        '''
-        if debug is True or 'cmd' in str(debug):
-            self.output.cmd(' '.join(argv))
-
-        proc = await asyncio.create_subprocess_shell(
-            shlex.join(argv),
-            stderr=sys.stderr,
-            stdin=sys.stdin,
-            stdout=sys.stdout,
-        )
-        await proc.communicate()
-        cli.exit_code = await proc.wait()
-        '''
 
     async def commit(self):
         if not self.image:
@@ -160,13 +147,13 @@ class Buildah(Localhost):
         user = os.getenv('DOCKER_USER')
         passwd = os.getenv('DOCKER_PASS')
         if user and passwd and os.getenv('CI'):
-            self.output.cmd('buildah', 'login', '-u', '...', '-p', '...', self.image.registry)
+            self.output.cmd('buildah login -u ... -p ...' + self.image.registry)
             old = self.output.debug
             self.output.debug = False
             await self.exec('buildah', 'login', '-u', user, '-p', passwd, self.image.registry or 'docker.io', )
             self.output.debug = old
         for tag in self.image.tags:
-            await self.exec('buildah', 'push', f'{self.image.repository}:{tag}')
+            await self.exec('buildah', 'push', self.image.registry or 'docker.io', f'{self.image.repository}:{tag}')
 
     async def clean(self, *args, **kwargs):
         if self.is_runnable():
