@@ -25,13 +25,14 @@ class Output:
     def colorize(self, code, content):
         return self.color(code) + content + self.color()
 
-    def __init__(self, prefix=None, regexps=None, debug=False, write=None, flush=None):
+    def __init__(self, prefix=None, regexps=None, debug=False, write=None, flush=None, **kwargs):
         self.prefix = prefix
         self.debug = debug
         self.prefix_length = 0
         self.regexps = regexps or dict()
         self.write = write or sys.stdout.buffer.write
         self.flush = flush or sys.stdout.flush
+        self.kwargs = kwargs
 
     def prefix_line(self):
         if self.prefix not in self.prefixes:

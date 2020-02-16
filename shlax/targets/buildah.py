@@ -143,17 +143,15 @@ class Buildah(Localhost):
         for tag in tags:
             await self.exec('buildah', 'tag', self.sha, tag, buildah=False)
 
-    async def push(self):
+    async def push(self, *args, **kwargs):
         user = os.getenv('DOCKER_USER')
         passwd = os.getenv('DOCKER_PASS')
-        if user and passwd and os.getenv('CI'):
+        if user and passwd:
             self.output.cmd('buildah login -u ... -p ...' + self.image.registry)
-            old = self.output.debug
-            self.output.debug = False
-            await self.exec('buildah', 'login', '-u', user, '-p', passwd, self.image.registry or 'docker.io', )
-            self.output.debug = old
+            await self.exec('buildah', 'login', '-u', user, '-p', passwd, self.image.registry or 'docker.io', debug=False)
+
         for tag in self.image.tags:
-            await self.exec('buildah', 'push', self.image.registry or 'docker.io', f'{self.image.repository}:{tag}')
+            await self.exec('buildah', 'push', f'{self.image.repository}:{tag}')
 
     async def clean(self, *args, **kwargs):
         if self.is_runnable():
@@ -162,7 +160,7 @@ class Buildah(Localhost):
 
             if self.status == 'success':
                 await self.commit()
-                if 'push' in args:
+                if 'push' in args or os.getenv('CI'):
                     await self.push()
 
             if self.mnt is not None:

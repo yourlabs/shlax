@@ -35,16 +35,16 @@ shlax = Container(
 )
 
 gitlabci = GitLabCI(
-    build=dict(
+    test=dict(
         stage='build',
+        script='pip install -U --user -e .[test] && ' + PYTEST,
+        image='yourlabs/python',
+    ),
+    build=dict(
+        stage='test',
         image='yourlabs/shlax',
         script='pip install -U --user -e . && CACHE_DIR=$(pwd)/.cache ./shlaxfile.py -d shlax build push',
         cache=dict(paths=['.cache'], key='cache'),
-    ),
-    test=dict(
-        stage='test',
-        script='pip install -U --user -e . && ./shlaxfile.py -d test',
-        image=build,
     ),
     pypi=dict(
         stage='deploy',
