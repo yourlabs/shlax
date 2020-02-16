@@ -32,7 +32,6 @@ class Buildah(Localhost):
         self.ctr = None
         self.mnt = None
         self.image = Image(commit) if commit else None
-        self.push = push or os.getenv('CI')
         self.config= dict(
             cmd=cmd or 'sh',
         )
@@ -150,26 +149,20 @@ class Buildah(Localhost):
         )).out
 
         if self.image.tags:
-            tags = ' '.join([f'{self.image.repository}:{tag}' for tag in self.image.tags])
-            await self.exec('buildah', 'tag', self.sha, self.image.repository, tags, buildah=False)
+            tags = [f'{self.image.repository}:{tag}' for tag in self.image.tags]
+        else:
+            tags = [self.image.repository]
 
-            if self.push:
-                user = os.getenv('DOCKER_USER')
-                passwd = os.getenv('DOCKER_PASS')
-                if user and passwd and os.getenv('CI') and self.registry:
-                    await self.exec(
-                        'podman',
-                        'login',
-                        '-u',
-                        user,
-                        '-p',
-                        passwd,
-                        self.registry,
-                        buildah=False,
-                    )
+        for tag in tags:
+            await self.exec('buildah', 'tag', self.sha, tag, buildah=False)
 
-                for tag in self.image.tags:
-                    await self.exec('podman', 'push', f'{self.image.repository}:{tag}', buildah=False)
+    async def push(self):
+        user = os.getenv('DOCKER_USER')
+        passwd = os.getenv('DOCKER_PASS')
+        if user and passwd and os.getenv('CI') and self.image.registry:
+            await self.exec('buildah', 'login', '-u', user, '-p', passwd, self.image.registry)
+        for tag in self.image.tags:
+            await self.exec('buildah', 'push', f'{self.image.repository}:{tag}')
 
     async def clean(self, *args, **kwargs):
         if self.is_runnable():
@@ -177,22 +170,12 @@ class Buildah(Localhost):
                 await self.exec('umount', self.mnt / str(dst)[1:], buildah=False)
 
             if self.status == 'success':
-                if 'test' in self.kwargs and 'test' in args:
-                    self.output.test(self)
-                    await self.action('Docker',
-                        *self.kwargs['test'].actions,
-                        image=self.image,
-                        mount={'.': '/app'},
-                        workdir='/app',
-                    )(*args, **kwargs)
                 await self.commit()
+                if 'push' in args:
+                    await self.push()
 
             if self.mnt is not None:
                 await self.exec('buildah', 'umount', self.ctr, buildah=False)
 
             if self.ctr is not None:
                 await self.exec('buildah', 'rm', self.ctr, buildah=False)
-
-        if 'push' in args:
-            for tag in self.image.tags:
-                await self.exec('podman', 'push', f'{self.image.repository}:{tag}', buildah=False)
