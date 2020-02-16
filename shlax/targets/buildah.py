@@ -160,7 +160,7 @@ class Buildah(Localhost):
 
             if self.status == 'success':
                 await self.commit()
-                if 'push' in args or os.getenv('CI'):
+                if 'push' in args:
                     await self.push()
 
             if self.mnt is not None:
