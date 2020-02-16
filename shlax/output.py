@@ -97,6 +97,16 @@ class Output:
 
         return line
 
+    def test(self, action):
+        if self.debug is True:
+            self(''.join([
+                self.colors['purplebold'],
+                '!  TEST   ',
+                self.colors['reset'],
+                action.colorized(),
+                '\n',
+            ]))
+
     def clean(self, action):
         if self.debug is True:
             self(''.join([

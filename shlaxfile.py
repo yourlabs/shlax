@@ -3,6 +3,11 @@ from shlax.contrib.gitlab import *
 
 PYTEST = 'py.test -svv tests'
 
+test = Script(
+    Pip('.[test]'),
+    Run(PYTEST),
+)
+
 build = Buildah(
     'quay.io/podman/stable',
     Packages('python38', 'buildah', 'unzip', 'findutils', 'python3-yaml', upgrade=False),
@@ -14,23 +19,15 @@ build = Buildah(
         mkdir -p /usr/local/lib/python3.8/site-packages/
         sh -c "cd setuptools-* && python3.8 setup.py install"
         easy_install-3.8 pip
+        echo python3.8 -m pip > /usr/bin/pip
+        chmod +x /usr/bin/pip
         '''),
         Copy('shlax/', 'setup.py', '/app'),
     ),
-    Pip('/app', pip='python3.8 -m pip'),
+    Pip('/app'),
     commit='yourlabs/shlax',
     workdir='/app',
-)
-
-test = Script(
-    Pip('.[test]'),
-    Run(PYTEST),
-)
-
-buildtest = Docker(
-    *test.actions,
-    mount={'.': '/app'},
-    workdir='/app',
+    test=test,
 )
 
 pypi = Run(

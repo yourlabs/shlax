@@ -20,7 +20,7 @@ class Buildah(Localhost):
     The build script iterates over visitors and runs the build functions, it
     also provides wrappers around the buildah command.
     """
-    contextualize = Localhost.contextualize + ['mnt', 'ctr', 'mount']
+    contextualize = Localhost.contextualize + ['mnt', 'ctr', 'mount', 'image']
 
     def __init__(self, base, *args, commit=None, push=False, cmd=None, **kwargs):
         if isinstance(base, Action):
@@ -55,6 +55,18 @@ class Buildah(Localhost):
 
     def __repr__(self):
         return f'Base({self.base})'
+
+    async def __call__(self, *args, **kwargs):
+        result = await super().__call__(*args, **kwargs)
+        if 'test' in self.kwargs and self.is_runnable():
+            self.output.test(self)
+            await self.action('Docker',
+                *self.kwargs['test'].actions,
+                image=self.image,
+                mount={'.': '/app'},
+                workdir='/app',
+            )(*args, **kwargs)
+        return result
 
     async def config(self, line):
         """Run buildah config."""

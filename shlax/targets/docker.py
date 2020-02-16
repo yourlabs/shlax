@@ -10,7 +10,9 @@ class Docker(Localhost):
     contextualize = Localhost.contextualize + ['mnt', 'ctr', 'mount']
 
     def __init__(self, *args, **kwargs):
-        self.image = Image(kwargs.get('image', 'alpine'))
+        self.image = kwargs.get('image', 'alpine')
+        if not isinstance(self.image, Image):
+            self.image = Image(image)
         super().__init__(*args, **kwargs)
         self.context['ctr'] = None
 
