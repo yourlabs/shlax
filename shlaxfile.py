@@ -38,7 +38,7 @@ gitlabci = GitLabCI(
     build=dict(
         stage='build',
         image='yourlabs/shlax',
-        script='./shlaxfile.py shlax build',
+        script='./shlaxfile.py -d shlax build',
     ),
     test=dict(
         stage='test',
