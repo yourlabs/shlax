@@ -8,6 +8,8 @@ import subprocess
 import sys
 import textwrap
 
+from ..actions.base import Action
+from ..exceptions import Mistake
 from ..proc import Proc
 from ..image import Image
 from .localhost import Localhost
@@ -18,16 +20,21 @@ class Buildah(Localhost):
     The build script iterates over visitors and runs the build functions, it
     also provides wrappers around the buildah command.
     """
-    contextualize = Localhost.contextualize + ['mnt', 'ctr', 'mount']
+    contextualize = Localhost.contextualize + ['mnt', 'ctr', 'mount', 'image']
 
-    def __init__(self, base, *args, commit=None, push=False, **kwargs):
+    def __init__(self, base, *args, commit=None, push=False, cmd=None, **kwargs):
+        if isinstance(base, Action):
+            args = [base] + list(args)
+            base = 'alpine'  # default selection in case of mistake
         super().__init__(*args, **kwargs)
         self.base = base
         self.mounts = dict()
         self.ctr = None
         self.mnt = None
         self.image = Image(commit) if commit else None
-        self.push = push or os.getenv('CI')
+        self.config= dict(
+            cmd=cmd or 'sh',
+        )
 
     def shargs(self, *args, user=None, buildah=True, **kwargs):
         if not buildah or args[0].startswith('buildah'):
@@ -51,9 +58,6 @@ class Buildah(Localhost):
     async def config(self, line):
         """Run buildah config."""
         return await self.exec(f'buildah config {line} {self.ctr}', buildah=False)
-
-    async def mkdir(self, *dirs):
-        return await self.exec(*['mkdir', '-p'] + list(dirs))
 
     async def copy(self, *args):
         """Run buildah copy to copy a file from host into container."""
@@ -81,29 +85,14 @@ class Buildah(Localhost):
         await self.exec(f'mount -o bind {src} {target}', buildah=False)
         self.mounts[src] = dst
 
-    async def which(self, *cmd):
-        """
-        Return the first path to the cmd in the container.
-
-        If cmd argument is a list then it will try all commands.
-        """
-        paths = (await self.env('PATH')).split(':')
-        for path in paths:
-            for c in cmd:
-                p = os.path.join(self.mnt, path[1:], c)
-                if os.path.exists(p):
-                    return p[len(str(self.mnt)):]
-
-    def is_wrapper(self):
-        return not (
+    def is_runnable(self):
+        return (
             Proc.test
             or os.getuid() == 0
-            or getattr(self.parent, 'parent', None)
         )
 
-
     async def call(self, *args, **kwargs):
-        if not self.is_wrapper():
+        if self.is_runnable():
             self.ctr = (await self.exec('buildah', 'from', self.base, buildah=False)).out
             self.mnt = Path((await self.exec('buildah', 'mount', self.ctr, buildah=False)).out)
             result = await super().call(*args, **kwargs)
@@ -124,20 +113,15 @@ class Buildah(Localhost):
         argv += [
             cli.parser.command.name,  # script name ?
         ]
-        self.output(' '.join(argv), 'EXECUTION', flush=True)
 
-        proc = await asyncio.create_subprocess_shell(
-            shlex.join(argv),
-            stderr=sys.stderr,
-            stdin=sys.stdin,
-            stdout=sys.stdout,
-        )
-        await proc.communicate()
-        cli.exit_code = await proc.wait()
+        await self.exec(*argv)
 
     async def commit(self):
         if not self.image:
             return
+
+        for key, value in self.config.items():
+            await self.exec(f'buildah config --{key} "{value}" {self.ctr}')
 
         self.sha = (await self.exec(
             'buildah',
@@ -148,39 +132,25 @@ class Buildah(Localhost):
         )).out
 
         if self.image.tags:
-            tags = ' '.join([f'{self.image.repository}:{tag}' for tag in self.image.tags])
-            await self.exec('buildah', 'tag', self.sha, self.image.repository, tags, buildah=False)
+            tags = [f'{self.image.repository}:{tag}' for tag in self.image.tags]
+        else:
+            tags = [self.image.repository]
 
-            if self.push:
-                user = os.getenv('DOCKER_USER')
-                passwd = os.getenv('DOCKER_PASS')
-                if user and passwd and os.getenv('CI') and self.registry:
-                    await self.exec(
-                        'podman',
-                        'login',
-                        '-u',
-                        user,
-                        '-p',
-                        passwd,
-                        self.registry,
-                        buildah=False,
-                    )
-
-                for tag in self.image.tags:
-                    await self.exec('podman', 'push', f'{self.image.repository}:{tag}', buildah=False)
+        for tag in tags:
+            await self.exec('buildah', 'tag', self.sha, tag, buildah=False)
 
     async def clean(self, *args, **kwargs):
-        if self.is_wrapper():
-            return
+        if self.is_runnable():
+            for src, dst in self.mounts.items():
+                await self.exec('umount', self.mnt / str(dst)[1:], buildah=False)
 
-        for src, dst in self.mounts.items():
-            await self.exec('umount', self.mnt / str(dst)[1:], buildah=False)
+            if self.status == 'success':
+                await self.commit()
+                if 'push' in args:
+                    await self.image.push(action=self)
 
-        if self.status == 'success':
-            await self.commit()
+            if self.mnt is not None:
+                await self.exec('buildah', 'umount', self.ctr, buildah=False)
 
-        if self.mnt is not None:
-            await self.exec('buildah', 'umount', self.ctr, buildah=False)
-
-        if self.ctr is not None:
-            await self.exec('buildah', 'rm', self.ctr, buildah=False)
+            if self.ctr is not None:
+                await self.exec('buildah', 'rm', self.ctr, buildah=False)

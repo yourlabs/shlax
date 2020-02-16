@@ -1,5 +1,5 @@
 - id: shlaxfile-gitlabci
   name: Regenerate .gitlab-ci.yml
   description: Regenerate gitlabci
-  entry: pip install -e . && ./shlaxfile.py gitlabci
+  entry: ./shlaxfile.py gitlabci
   language: python

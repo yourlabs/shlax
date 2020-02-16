@@ -55,3 +55,21 @@ class Image:
         # default tag by default ...
         if not self.tags:
             self.tags = ['latest']
+
+    async def __call__(self, action, *args, **kwargs):
+        args = list(args)
+        return await action.exec(*args, **self.kwargs)
+
+    def __str__(self):
+        return f'{self.repository}:{self.tags[-1]}'
+
+    async def push(self, *args, **kwargs):
+        user = os.getenv('DOCKER_USER')
+        passwd = os.getenv('DOCKER_PASS')
+        action = kwargs.get('action', self)
+        if user and passwd:
+            action.output.cmd('buildah login -u ... -p ...' + self.registry)
+            await action.exec('buildah', 'login', '-u', user, '-p', passwd, self.registry or 'docker.io', debug=False)
+
+        for tag in self.tags:
+            await action.exec('buildah', 'push', f'{self.repository}:{tag}')

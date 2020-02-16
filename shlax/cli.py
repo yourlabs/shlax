@@ -8,6 +8,7 @@ shlax is a micro-framework to orchestrate commands.
 
 import asyncio
 import cli2
+import copy
 import inspect
 import os
 import sys
@@ -130,8 +131,10 @@ class ConsoleScript(cli2.ConsoleScript):
         return super().__call__(*args, **kwargs)
 
     def call(self, command):
+        kwargs = copy.copy(self.parser.funckwargs)
+        kwargs.update(self.parser.options)
         try:
-            return super().call(command)
+            return command(*self.parser.funcargs, **kwargs)
         except WrongResult as e:
             print(e)
             self.exit_code = e.proc.rc

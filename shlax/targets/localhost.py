@@ -1,4 +1,5 @@
 import os
+import re
 
 from shlax.proc import Proc
 
@@ -29,7 +30,8 @@ class Localhost(Script):
             return args, kwargs
 
     async def exec(self, *args, **kwargs):
-        kwargs.setdefault('debug', self.call_kwargs.get('debug', False))
+        if 'debug' not in kwargs:
+            kwargs['debug'] = getattr(self, 'call_kwargs', {}).get('debug', False)
         kwargs.setdefault('output', self.output)
         args, kwargs = self.shargs(*args, **kwargs)
         proc = await Proc(*args, **kwargs)()
@@ -50,12 +52,20 @@ class Localhost(Script):
 
         If cmd argument is a list then it will try all commands.
         """
-        for path in (await self.env('PATH')).split(':'):
-            for c in cmd:
-                p = os.path.join(self.root, path[1:], c)
-                if os.path.exists(p):
-                    return p[len(str(self.root)):]
+        proc = await self.exec('type ' + ' '.join(cmd), raises=False)
+        result = []
+        for res in proc.out.split('\n'):
+            match = re.match('([^ ]+) is ([^ ]+)$', res.strip())
+            if match:
+                result.append(match.group(1))
+        return result
 
     async def copy(self, *args):
         args = ['cp', '-ra'] + list(args)
         return await self.exec(*args)
+
+    async def mount(self, *dirs):
+        pass
+
+    async def mkdir(self, *dirs):
+        return await self.exec(*['mkdir', '-p'] + list(dirs))

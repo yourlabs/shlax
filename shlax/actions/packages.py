@@ -113,7 +113,7 @@ class Packages(Action):
         else:
             mgr = await self.which(*self.mgrs.keys())
             if mgr:
-                self.mgr = mgr.split('/')[-1]
+                self.mgr = mgr[0].split('/')[-1]
 
         if not self.mgr:
             raise Exception('Packages does not yet support this distro')
@@ -121,7 +121,8 @@ class Packages(Action):
         self.cmds = self.mgrs[self.mgr]
         if not getattr(self, '_packages_upgraded', None):
             await self.update()
-            await self.rexec(self.cmds['upgrade'])
+            if self.kwargs.get('upgrade', True):
+                await self.rexec(self.cmds['upgrade'])
             self._packages_upgraded = True
 
         packages = []
@@ -141,13 +142,13 @@ class Packages(Action):
         cachedir = os.path.join(self.cache_root, self.mgr)
         await self.mount(cachedir, '/var/cache/apk')
         # special step to enable apk cache
-        await self.rexec('ln -s /var/cache/apk /etc/apk/cache')
+        await self.rexec('ln -sf /var/cache/apk /etc/apk/cache')
         return cachedir
 
     async def dnf_setup(self):
         cachedir = os.path.join(self.cache_root, self.mgr)
         await self.mount(cachedir, f'/var/cache/{self.mgr}')
-        await self.run('echo keepcache=True >> /etc/dnf/dnf.conf')
+        await self.rexec('echo keepcache=True >> /etc/dnf/dnf.conf')
         return cachedir
 
     async def apt_setup(self):

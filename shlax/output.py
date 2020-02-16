@@ -25,16 +25,17 @@ class Output:
     def colorize(self, code, content):
         return self.color(code) + content + self.color()
 
-    def __init__(self, prefix=None, regexps=None, debug=False, write=None, flush=None):
+    def __init__(self, prefix=None, regexps=None, debug=False, write=None, flush=None, **kwargs):
         self.prefix = prefix
         self.debug = debug
         self.prefix_length = 0
         self.regexps = regexps or dict()
         self.write = write or sys.stdout.buffer.write
         self.flush = flush or sys.stdout.flush
+        self.kwargs = kwargs
 
-    def __call__(self, line, highlight=True, flush=True):
-        if self.prefix and self.prefix not in self.prefixes:
+    def prefix_line(self):
+        if self.prefix not in self.prefixes:
             self.prefixes[self.prefix] = self.prefix_colors[len(self.prefixes)]
             if len(self.prefix) > self.prefix_length:
                 self.prefix_length = len(self.prefix)
@@ -44,24 +45,24 @@ class Output:
         if prefix_padding:
             prefix_padding = ' ' + prefix_padding + ' '
 
-        self.write((
-            (
-                prefix_color
-                + prefix_padding
-                + self.prefix
-                + ' '
-                + self.colors['reset']
-                + '| '
-                if self.prefix
-                else ''
-            )
-            + self.highlight(line, highlight)
-            + self.colors['reset']
-        ).encode('utf8'))
+        return [
+            prefix_color,
+            prefix_padding,
+            self.prefix,
+            ' ',
+            self.colors['reset'],
+            '| '
+        ]
+
+    def __call__(self, line, highlight=True, flush=True):
+        line = [self.highlight(line) if highlight else line]
+        if self.prefix:
+            line = self.prefix_line() + line
+        line = ''.join(line)
+
+        self.write(line.encode('utf8'))
 
         if flush:
-            if not line.endswith('\n'):
-                self.write(b'\n')
             self.flush()
 
     def cmd(self, line):
@@ -70,7 +71,8 @@ class Output:
             + '\x1b[1;38;5;15m'
             + ' '
             + self.highlight(line, 'bash')
-            + self.colors['reset'],
+            + self.colors['reset']
+            + '\n',
             highlight=False
         )
 
@@ -92,25 +94,38 @@ class Output:
 
         for regexp, colors in self.regexps.items():
             line = re.sub(regexp, colors.format(**self.colors), line)
+        line = line + self.colors['reset']
 
         return line
 
-    def clean(self, action):
-        if self.debug is True or 'visit' in str(self.debug):
+    def test(self, action):
+        if self.debug is True:
             self(''.join([
-                self.colors['bluebold'],
-                '+ CLEAN ',
+                self.colors['purplebold'],
+                '!  TEST   ',
                 self.colors['reset'],
                 action.colorized(),
+                '\n',
+            ]))
+
+    def clean(self, action):
+        if self.debug is True:
+            self(''.join([
+                self.colors['bluebold'],
+                '+  CLEAN  ',
+                self.colors['reset'],
+                action.colorized(),
+                '\n',
             ]))
 
     def start(self, action):
         if self.debug is True or 'visit' in str(self.debug):
             self(''.join([
                 self.colors['orangebold'],
-                '⚠ START ',
+                '⚠  START  ',
                 self.colors['reset'],
                 action.colorized(),
+                '\n',
             ]))
 
     def success(self, action):
@@ -119,14 +134,16 @@ class Output:
                 self.colors['greenbold'],
                 '✔ SUCCESS ',
                 self.colors['reset'],
-                action.colorized(),
+                action.colorized() if hasattr(action, 'colorized') else str(action),
+                '\n',
             ]))
 
     def fail(self, action, exception=None):
         if self.debug is True or 'visit' in str(self.debug):
             self(''.join([
                 self.colors['redbold'],
-                '✘ FAIL ',
+                '✘  FAIL   ',
                 self.colors['reset'],
-                action.colorized(),
+                action.colorized() if hasattr(action, 'colorized') else str(action),
+                '\n',
             ]))

@@ -1,14 +1,15 @@
 build:
+  cache:
+    key: cache
+    paths: [.cache]
   image: yourlabs/shlax
-  script: pip install -U .[test] && py.test -svv tests
-  stage: test
+  script: pip install -U --user -e . && CACHE_DIR=$(pwd)/.cache ./shlaxfile.py -d
+    shlax build push
+  stage: build
 pypi:
   image: yourlabs/python
-  only:
-  - tags
+  only: [tags]
   script: pypi-release
   stage: deploy
-test:
-  image: yourlabs/python
-  script: pip install -U .[test] && py.test -svv tests
-  stage: test
+test: {image: yourlabs/python, script: 'pip install -U --user -e .[test] && py.test
+    -svv tests', stage: build}
