@@ -27,6 +27,10 @@ build = Buildah(
     Pip('/app'),
     commit='yourlabs/shlax',
     workdir='/app',
+)
+
+shlax = Container(
+    build=build,
     test=test,
 )
 
