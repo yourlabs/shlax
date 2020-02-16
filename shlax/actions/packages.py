@@ -141,7 +141,7 @@ class Packages(Action):
         cachedir = os.path.join(self.cache_root, self.mgr)
         await self.mount(cachedir, '/var/cache/apk')
         # special step to enable apk cache
-        await self.rexec('ln -s /var/cache/apk /etc/apk/cache')
+        await self.rexec('ln -sf /var/cache/apk /etc/apk/cache')
         return cachedir
 
     async def dnf_setup(self):

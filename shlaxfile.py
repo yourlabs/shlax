@@ -4,6 +4,7 @@ from shlax.contrib.gitlab import *
 PYTEST = 'py.test -svv tests'
 
 build = Buildah(
+    Packages('py3-yaml'),
     Copy('shlax/', 'setup.py', '/app'),
     Pip('/app'),
     commit='yourlabs/shlax',
