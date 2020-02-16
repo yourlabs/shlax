@@ -25,7 +25,7 @@ build = Buildah(
         Copy('shlax/', 'setup.py', '/app'),
     ),
     Pip('/app[full]'),
-    commit='yourlabs/shlax',
+    commit='docker.io/yourlabs/shlax',
     workdir='/app',
 )
 
