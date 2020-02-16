@@ -38,12 +38,12 @@ gitlabci = GitLabCI(
     build=dict(
         stage='build',
         image='yourlabs/shlax',
-        script='CACHE_DIR=$(pwd)/.cache ./shlaxfile.py -d shlax build push',
+        script='pip install -U --user -e . && CACHE_DIR=$(pwd)/.cache ./shlaxfile.py -d shlax build push',
         cache=dict(paths=['.cache'], key='cache'),
     ),
     test=dict(
         stage='test',
-        script='./shlaxfile.py -d test',
+        script='pip install -U --user -e . && ./shlaxfile.py -d test',
         image=build,
     ),
     pypi=dict(

@@ -1,4 +1,3 @@
-from .commit import Commit
 from .copy import Copy
 from .packages import Packages  # noqa
 from .base import Action  # noqa
