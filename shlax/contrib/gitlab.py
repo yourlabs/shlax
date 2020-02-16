@@ -10,7 +10,6 @@ class GitLabCI(Script):
         for key, value in self.kwargs.items():
             if isinstance(value, dict):
                 output[key] = deepcopy(value)
-                output[key]['script'] = './shlaxfile.py ' + key
                 image = output[key].get('image', 'alpine')
                 if hasattr(image, 'image'):
                     output[key]['image'] = image.image.repository + ':$CI_COMMIT_SHORT_SHA'
