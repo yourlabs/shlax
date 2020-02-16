@@ -7,8 +7,23 @@ import os
 import shlex
 import sys
 
-from .exceptions import WrongResult
 from .output import Output
+
+
+class ProcFailure(Exception):
+    def __init__(self, proc):
+        self.proc = proc
+
+        msg = f'FAIL exit with {proc.rc} ' + proc.args[0]
+
+        if not proc.output.debug or 'cmd' not in str(proc.output.debug):
+            msg += '\n' + proc.cmd
+
+        if not proc.output.debug or 'out' not in str(proc.output.debug):
+            msg += '\n' + proc.out
+            msg += '\n' + proc.err
+
+        super().__init__(msg)
 
 
 class PrefixStreamProtocol(asyncio.subprocess.SubprocessStreamProtocol):
@@ -54,8 +69,7 @@ class Proc:
     """
     test = False
 
-    def __init__(self, *args, prefix=None, raises=True, debug=None, output=None):
-        self.debug = debug if not self.test else False
+    def __init__(self, *args, prefix=None, raises=True, output=None):
         self.output = output or Output()
         self.cmd = ' '.join(args)
         self.args = args
@@ -87,7 +101,7 @@ class Proc:
         if self.called:
             raise Exception('Already called: ' + self.cmd)
 
-        if self.debug is True or 'cmd' in str(self.debug):
+        if 'cmd' in str(self.output.debug):
             self.output.cmd(self.cmd)
 
         if self.test:
@@ -123,7 +137,7 @@ class Proc:
         if not self.communicated:
             await self.communicate()
         if self.raises and self.proc.returncode:
-            raise WrongResult(self)
+            raise ProcFailure(self)
         return self
 
     @property

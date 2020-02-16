@@ -1,146 +1,55 @@
-'''
-shlax is a micro-framework to orchestrate commands.
-
-  shlax yourfile.py: to list actions you have declared.
-  shlax yourfile.py <action>: to execute a given action
-  #!/usr/bin/env shlax: when making yourfile.py an executable.
-'''
-
-import asyncio
+"""
+Shlax executes mostly in 3 ways:
+- Execute actions on targets with the command line
+- With your shlaxfile as first argument: offer defined Actions
+- With the name of a module in shlax.repo: a community maintained shlaxfile
+"""
+import ast
 import cli2
-import copy
+import glob
 import inspect
+import importlib
 import os
 import sys
 
-from .exceptions import *
-from .shlaxfile import Shlaxfile
-from .targets import Localhost
-
-
-async def runall(*args, **kwargs):
-    for name, action in cli.shlaxfile.actions.items():
-        await Localhost(action)(*args, **kwargs)
-
-
-@cli2.option('debug', alias='d', help='Display debug output.')
-async def test(*args, **kwargs):
-    """Run podctl test over a bunch of paths."""
-    report = []
-
-    for arg in args:
-        candidates = [
-            os.path.join(os.getcwd(), arg, 'pod.py'),
-            os.path.join(os.getcwd(), arg, 'pod_test.py'),
-        ]
-        for candidate in candidates:
-            if not os.path.exists(candidate):
-                continue
-            podfile = Podfile.factory(candidate)
-
-            # disable push
-            for name, container in podfile.containers.items():
-                commit = container.visitor('commit')
-                if commit:
-                    commit.push = False
-
-            output.print(
-                '\n\x1b[1;38;5;160;48;5;118m  BUILD START \x1b[0m'
-                + ' ' + podfile.path + '\n'
-            )
-
-            old_exit_code = console_script.exit_code
-            console_script.exit_code = 0
-            try:
-                await podfile.pod.script('build')()
-            except Exception as e:
-                report.append(('build ' + candidate, False))
-                continue
-
-            if console_script.exit_code != 0:
-                report.append(('build ' + candidate, False))
-                continue
-            console_script.exit_code = old_exit_code
-
-            for name, test in podfile.tests.items():
-                name = '::'.join([podfile.path, name])
-                output.print(
-                    '\n\x1b[1;38;5;160;48;5;118m   TEST START \x1b[0m'
-                    + ' ' + name + '\n'
-                )
-
-                try:
-                    await test(podfile.pod)
-                except Exception as e:
-                    report.append((name, False))
-                    output.print('\x1b[1;38;5;15;48;5;196m    TEST FAIL \x1b[0m' + name)
-                else:
-                    report.append((name, True))
-                    output.print('\x1b[1;38;5;200;48;5;44m TEST SUCCESS \x1b[0m' + name)
-                output.print('\n')
-
-    print('\n')
-
-    for name, success in report:
-        if success:
-            output.print('\n\x1b[1;38;5;200;48;5;44m TEST SUCCESS \x1b[0m' + name)
-        else:
-            output.print('\n\x1b[1;38;5;15;48;5;196m    TEST FAIL \x1b[0m' + name)
-
-    print('\n')
-
-    success = [*filter(lambda i: i[1], report)]
-    failures = [*filter(lambda i: not i[1], report)]
-
-    output.print(
-        '\n\x1b[1;38;5;200;48;5;44m TEST TOTAL: \x1b[0m'
-        + str(len(report))
-    )
-    if success:
-        output.print(
-            '\n\x1b[1;38;5;200;48;5;44m TEST SUCCESS: \x1b[0m'
-            + str(len(success))
-        )
-    if failures:
-        output.print(
-            '\n\x1b[1;38;5;15;48;5;196m    TEST FAIL: \x1b[0m'
-            + str(len(failures))
-        )
-
-    if failures:
-        console_script.exit_code = 1
-
 
 class ConsoleScript(cli2.ConsoleScript):
-    def __call__(self, *args, **kwargs):
-        self.shlaxfile = None
-        shlaxfile = sys.argv.pop(1) if len(sys.argv) > 1 else ''
-        if os.path.exists(shlaxfile.split('::')[0]):
-            self.shlaxfile = Shlaxfile()
-            self.shlaxfile.parse(shlaxfile)
-            for name, action in self.shlaxfile.actions.items():
-                self[name] = cli2.Callable(
-                    name,
-                    action.callable(),
-                    options={
-                        k: cli2.Option(name=k, **v)
-                        for k, v in action.options.items()
-                    },
-                    color=getattr(action, 'color', cli2.YELLOW),
-                )
-        return super().__call__(*args, **kwargs)
+    def __call__(self):
+        repo = os.path.join(os.path.dirname(__file__), 'repo')
 
-    def call(self, command):
-        kwargs = copy.copy(self.parser.funckwargs)
-        kwargs.update(self.parser.options)
-        try:
-            return command(*self.parser.funcargs, **kwargs)
-        except WrongResult as e:
-            print(e)
-            self.exit_code = e.proc.rc
-        except ShlaxException as e:
-            print(e)
-            self.exit_code = 1
+        if len(self.argv) > 1:
+            repofile = os.path.join(repo, sys.argv[1] + '.py')
+            if os.path.isfile(self.argv[1]):
+                self.argv = sys.argv[1:]
+                self.load_shlaxfile(sys.argv[1])
+            elif os.path.isfile(repofile):
+                self.argv = sys.argv[1:]
+                self.load_shlaxfile(repofile)
+            else:
+                raise Exception('File not found ' + sys.argv[1])
+        else:
+            available = glob.glob(os.path.join(repo, '*.py'))
+        return super().__call__()
 
 
-cli = ConsoleScript(__doc__).add_module('shlax.cli')
+    def load_shlaxfile(self, path):
+        with open(path) as f:
+            src = f.read()
+        tree = ast.parse(src)
+
+        members = []
+        for node in tree.body:
+            if not isinstance(node, ast.Assign):
+                continue
+            if not isinstance(node.value, ast.Call):
+                continue
+            members.append(node.targets[0].id)
+
+        spec = importlib.util.spec_from_file_location('shlaxfile', sys.argv[1])
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        for member in members:
+            from shlax.targets.localhost import Localhost
+            self[member] = cli2.Callable(member, Localhost(getattr(mod, member)))
+
+cli = ConsoleScript(__doc__)

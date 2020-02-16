@@ -1,7 +1,7 @@
 import pytest
 import os
 
-from shlax import Image
+from shlax.image import Image
 
 
 tests = {

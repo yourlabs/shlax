@@ -7,19 +7,16 @@ import os
 import subprocess
 from textwrap import dedent
 
-from .base import Action
 
-
-class Packages(Action):
+class Packages:
     """
-    The Packages visitor wraps around the container's package manager.
+    Package manager abstract layer with caching.
 
     It's a central piece of the build process, and does iterate over other
     container visitors in order to pick up packages. For example, the Pip
     visitor will declare ``self.packages = dict(apt=['python3-pip'])``, and the
     Packages visitor will pick it up.
     """
-    contextualize = ['mgr']
     regexps = {
         #r'Installing ([\w\d-]+)': '{cyan}\\1',
         r'Installing': '{cyan}lol',
@@ -55,12 +52,11 @@ class Packages(Action):
 
     installed = []
 
-    def __init__(self, *packages, **kwargs):
+    def __init__(self, *packages):
         self.packages = []
         for package in packages:
             line = dedent(package).strip().replace('\n', ' ')
             self.packages += line.split(' ')
-        super().__init__(*packages, **kwargs)
 
     @property
     def cache_root(self):
@@ -69,9 +65,9 @@ class Packages(Action):
         else:
             return os.path.join(os.getenv('HOME'), '.cache')
 
-    async def update(self):
+    async def update(self, target):
         # run pkgmgr_setup functions ie. apk_setup
-        cachedir = await getattr(self, self.mgr + '_setup')()
+        cachedir = await getattr(self, self.mgr + '_setup')(target)
 
         lastupdate = None
         if os.path.exists(cachedir + '/lastupdate'):
@@ -95,7 +91,7 @@ class Packages(Action):
                     f.write(str(os.getpid()))
 
                 try:
-                    await self.rexec(self.cmds['update'])
+                    await target.rexec(self.cmds['update'])
                 finally:
                     os.unlink(lockfile)
 
@@ -103,15 +99,15 @@ class Packages(Action):
                     f.write(str(now))
             else:
                 while os.path.exists(lockfile):
-                    print(f'{self.container.name} | Waiting for update ...')
+                    print(f'{self.target} | Waiting for {lockfile} ...')
                     await asyncio.sleep(1)
 
-    async def call(self, *args, **kwargs):
-        cached = getattr(self, '_pagkages_mgr', None)
+    async def __call__(self, target):
+        cached = getattr(target, 'pkgmgr', None)
         if cached:
             self.mgr = cached
         else:
-            mgr = await self.which(*self.mgrs.keys())
+            mgr = await target.which(*self.mgrs.keys())
             if mgr:
                 self.mgr = mgr[0].split('/')[-1]
 
@@ -119,11 +115,8 @@ class Packages(Action):
             raise Exception('Packages does not yet support this distro')
 
         self.cmds = self.mgrs[self.mgr]
-        if not getattr(self, '_packages_upgraded', None):
-            await self.update()
-            if self.kwargs.get('upgrade', True):
-                await self.rexec(self.cmds['upgrade'])
-            self._packages_upgraded = True
+        await self.update(target)
+        await target.rexec(self.cmds['upgrade'])
 
         packages = []
         for package in self.packages:
@@ -136,22 +129,22 @@ class Packages(Action):
             else:
                 packages.append(package)
 
-        await self.rexec(*self.cmds['install'].split(' ') + packages)
+        await target.rexec(*self.cmds['install'].split(' ') + packages)
 
-    async def apk_setup(self):
+    async def apk_setup(self, target):
         cachedir = os.path.join(self.cache_root, self.mgr)
-        await self.mount(cachedir, '/var/cache/apk')
+        await target.mount(cachedir, '/var/cache/apk')
         # special step to enable apk cache
-        await self.rexec('ln -sf /var/cache/apk /etc/apk/cache')
+        await target.rexec('ln -sf /var/cache/apk /etc/apk/cache')
         return cachedir
 
-    async def dnf_setup(self):
+    async def dnf_setup(self, target):
         cachedir = os.path.join(self.cache_root, self.mgr)
-        await self.mount(cachedir, f'/var/cache/{self.mgr}')
-        await self.rexec('echo keepcache=True >> /etc/dnf/dnf.conf')
+        await target.mount(cachedir, f'/var/cache/{self.mgr}')
+        await target.rexec('echo keepcache=True >> /etc/dnf/dnf.conf')
         return cachedir
 
-    async def apt_setup(self):
+    async def apt_setup(self, target):
         codename = (await self.rexec(
             f'source {self.mnt}/etc/os-release; echo $VERSION_CODENAME'
         )).out
@@ -163,7 +156,7 @@ class Packages(Action):
         await self.mount(cache_lists, f'/var/lib/apt/lists')
         return cachedir
 
-    async def pacman_setup(self):
+    async def pacman_setup(self, target):
         return self.cache_root + '/pacman'
 
     def __repr__(self):
