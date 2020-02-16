@@ -86,15 +86,14 @@ class Buildah(Localhost):
         await self.exec(f'mount -o bind {src} {target}', buildah=False)
         self.mounts[src] = dst
 
-    def is_wrapper(self):
-        return not (
+    def is_runnable(self):
+        return (
             Proc.test
             or os.getuid() == 0
-            or getattr(self.parent, 'parent', None)
         )
 
     async def call(self, *args, **kwargs):
-        if not self.is_wrapper():
+        if self.is_runnable():
             self.ctr = (await self.exec('buildah', 'from', self.base, buildah=False)).out
             self.mnt = Path((await self.exec('buildah', 'mount', self.ctr, buildah=False)).out)
             result = await super().call(*args, **kwargs)
@@ -169,7 +168,7 @@ class Buildah(Localhost):
                     await self.exec('podman', 'push', f'{self.image.repository}:{tag}', buildah=False)
 
     async def clean(self, *args, **kwargs):
-        if not self.is_wrapper():
+        if self.is_runnable():
             for src, dst in self.mounts.items():
                 await self.exec('umount', self.mnt / str(dst)[1:], buildah=False)
 
