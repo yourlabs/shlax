@@ -169,17 +169,19 @@ class Buildah(Localhost):
                     await self.exec('podman', 'push', f'{self.image.repository}:{tag}', buildah=False)
 
     async def clean(self, *args, **kwargs):
-        if self.is_wrapper():
-            return
+        if not self.is_wrapper():
+            for src, dst in self.mounts.items():
+                await self.exec('umount', self.mnt / str(dst)[1:], buildah=False)
 
-        for src, dst in self.mounts.items():
-            await self.exec('umount', self.mnt / str(dst)[1:], buildah=False)
+            if self.status == 'success':
+                await self.commit()
 
-        if self.status == 'success':
-            await self.commit()
+            if self.mnt is not None:
+                await self.exec('buildah', 'umount', self.ctr, buildah=False)
 
-        if self.mnt is not None:
-            await self.exec('buildah', 'umount', self.ctr, buildah=False)
+            if self.ctr is not None:
+                await self.exec('buildah', 'rm', self.ctr, buildah=False)
 
-        if self.ctr is not None:
-            await self.exec('buildah', 'rm', self.ctr, buildah=False)
+        if 'push' in args:
+            for tag in self.image.tags:
+                await self.exec('podman', 'push', f'{self.image.repository}:{tag}', buildah=False)
