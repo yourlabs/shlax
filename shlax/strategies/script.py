@@ -29,4 +29,6 @@ class Script(Action):
 
     async def call(self, *args, **kwargs):
         for action in self.actions:
-            await action(*args, **kwargs)
+            result = await action(*args, **kwargs)
+            if action.status != 'success':
+                break
