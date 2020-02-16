@@ -17,7 +17,7 @@ build = Buildah(
         '''),
         Copy('shlax/', 'setup.py', '/app'),
     ),
-    Pip('/app'),
+    Pip('/app', pip='python3.8 -m pip'),
     commit='yourlabs/shlax',
     workdir='/app',
 )

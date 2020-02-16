@@ -10,22 +10,24 @@ class Pip(Action):
         super().__init__(*pip_packages, pip=pip, requirements=requirements)
 
     async def call(self, *args, **kwargs):
-        pip = await self.which('pip3', 'pip', 'pip2')
-        if pip:
-            pip = pip[0]
-        else:
-            from .packages import Packages
-            action = self.action(
-                Packages,
-                'python3,apk', 'python3-pip,apt',
-                args=args, kwargs=kwargs
-            )
-            await action(*args, **kwargs)
+        pip = self.kwargs.get('pip', None)
+        if not pip:
             pip = await self.which('pip3', 'pip', 'pip2')
-            if not pip:
-                raise Exception('Could not install a pip command')
-            else:
+            if pip:
                 pip = pip[0]
+            else:
+                from .packages import Packages
+                action = self.action(
+                    Packages,
+                    'python3,apk', 'python3-pip,apt',
+                    args=args, kwargs=kwargs
+                )
+                await action(*args, **kwargs)
+                pip = await self.which('pip3', 'pip', 'pip2')
+                if not pip:
+                    raise Exception('Could not install a pip command')
+                else:
+                    pip = pip[0]
 
         if 'CACHE_DIR' in os.environ:
             cache = os.path.join(os.getenv('CACHE_DIR'), 'pip')
@@ -38,7 +40,8 @@ class Pip(Action):
         await self.exec(f'{pip} install --upgrade pip')
 
         # https://github.com/pypa/pip/issues/5599
-        pip = 'python3 -m pip'
+        if 'pip' not in self.kwargs:
+            pip = 'python3 -m pip'
 
         source = [p for p in self.args if p.startswith('/') or p.startswith('.')]
         if source:
