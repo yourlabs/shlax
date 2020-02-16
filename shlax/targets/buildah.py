@@ -58,14 +58,6 @@ class Buildah(Localhost):
 
     async def __call__(self, *args, **kwargs):
         result = await super().__call__(*args, **kwargs)
-        if 'test' in self.kwargs and self.is_runnable():
-            self.output.test(self)
-            await self.action('Docker',
-                *self.kwargs['test'].actions,
-                image=self.image,
-                mount={'.': '/app'},
-                workdir='/app',
-            )(*args, **kwargs)
         return result
 
     async def config(self, line):
@@ -185,6 +177,14 @@ class Buildah(Localhost):
                 await self.exec('umount', self.mnt / str(dst)[1:], buildah=False)
 
             if self.status == 'success':
+                if 'test' in self.kwargs and 'test' in args:
+                    self.output.test(self)
+                    await self.action('Docker',
+                        *self.kwargs['test'].actions,
+                        image=self.image,
+                        mount={'.': '/app'},
+                        workdir='/app',
+                    )(*args, **kwargs)
                 await self.commit()
 
             if self.mnt is not None:
