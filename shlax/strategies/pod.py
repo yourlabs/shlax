@@ -18,7 +18,7 @@ class Container(Script):
             )(**kwargs)
 
         if not args or 'push' in args:
-            await self.kwargs['build'](method='push', **kwargs)
+            await self.image.push(action=self)
 
         #name = kwargs.get('name', os.getcwd()).split('/')[-1]
 

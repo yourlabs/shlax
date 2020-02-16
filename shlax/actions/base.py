@@ -111,9 +111,8 @@ class Action:
         self.output = self.output_factory(*args, **kwargs)
         self.output_start()
         self.status = 'running'
-        call = getattr(self, kwargs.pop('method', 'call'))
         try:
-            result = await call(*args, **kwargs)
+            result = await self.call(*args, **kwargs)
         except Exception as e:
             self.output_fail(e)
             self.status = 'fail'

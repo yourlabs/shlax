@@ -55,10 +55,6 @@ class Buildah(Localhost):
     def __repr__(self):
         return f'Base({self.base})'
 
-    async def __call__(self, *args, **kwargs):
-        result = await super().__call__(*args, **kwargs)
-        return result
-
     async def config(self, line):
         """Run buildah config."""
         return await self.exec(f'buildah config {line} {self.ctr}', buildah=False)
@@ -143,16 +139,6 @@ class Buildah(Localhost):
         for tag in tags:
             await self.exec('buildah', 'tag', self.sha, tag, buildah=False)
 
-    async def push(self, *args, **kwargs):
-        user = os.getenv('DOCKER_USER')
-        passwd = os.getenv('DOCKER_PASS')
-        if user and passwd:
-            self.output.cmd('buildah login -u ... -p ...' + self.image.registry)
-            await self.exec('buildah', 'login', '-u', user, '-p', passwd, self.image.registry or 'docker.io', debug=False)
-
-        for tag in self.image.tags:
-            await self.exec('buildah', 'push', f'{self.image.repository}:{tag}')
-
     async def clean(self, *args, **kwargs):
         if self.is_runnable():
             for src, dst in self.mounts.items():
@@ -161,7 +147,7 @@ class Buildah(Localhost):
             if self.status == 'success':
                 await self.commit()
                 if 'push' in args:
-                    await self.push()
+                    await self.image.push(action=self)
 
             if self.mnt is not None:
                 await self.exec('buildah', 'umount', self.ctr, buildah=False)

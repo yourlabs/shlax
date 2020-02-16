@@ -119,7 +119,7 @@ class Output:
             ]))
 
     def start(self, action):
-        if self.debug is True:
+        if self.debug is True or 'visit' in str(self.debug):
             self(''.join([
                 self.colors['orangebold'],
                 '⚠  START  ',
