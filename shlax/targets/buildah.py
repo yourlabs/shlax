@@ -159,8 +159,12 @@ class Buildah(Localhost):
     async def push(self):
         user = os.getenv('DOCKER_USER')
         passwd = os.getenv('DOCKER_PASS')
-        if user and passwd and os.getenv('CI') and self.image.registry:
-            await self.exec('buildah', 'login', '-u', user, '-p', passwd, self.image.registry)
+        if user and passwd and os.getenv('CI'):
+            self.output.cmd('buildah', 'login', '-u', '...', '-p', '...', self.image.registry)
+            old = self.output.debug
+            self.output.debug = False
+            await self.exec('buildah', 'login', '-u', user, '-p', passwd, self.image.registry or 'docker.io', )
+            self.output.debug = old
         for tag in self.image.tags:
             await self.exec('buildah', 'push', f'{self.image.repository}:{tag}')
 
