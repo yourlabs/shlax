@@ -1,4 +1,10 @@
-build: {image: yourlabs/shlax, script: ./shlaxfile.py build, stage: build}
+build:
+  cache:
+    key: cache
+    paths: [.cache]
+  image: yourlabs/shlax
+  script: ./shlaxfile.py build
+  stage: build
 pypi:
   image: yourlabs/python
   only: [tags]

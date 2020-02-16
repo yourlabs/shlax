@@ -38,7 +38,8 @@ gitlabci = GitLabCI(
     build=dict(
         stage='build',
         image='yourlabs/shlax',
-        script='./shlaxfile.py -d shlax build',
+        script='CACHE_DIR=$(pwd)/.cache ./shlaxfile.py -d shlax build push',
+        cache=dict(paths=['.cache'], key='cache'),
     ),
     test=dict(
         stage='test',
