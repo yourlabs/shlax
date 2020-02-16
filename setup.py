@@ -7,6 +7,9 @@ setup(
     setup_requires='setupmeta',
     install_requires=['cli2'],
     extras_require=dict(
+        full=[
+            'pyyaml',
+        ],
         test=[
             'pytest',
             'pytest-cov',

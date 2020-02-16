@@ -24,34 +24,31 @@ build = Buildah(
         '''),
         Copy('shlax/', 'setup.py', '/app'),
     ),
-    Pip('/app'),
+    Pip('/app[full]'),
     commit='yourlabs/shlax',
     workdir='/app',
 )
 
 shlax = Container(
     build=build,
-    test=test,
-)
-
-pypi = Run(
-    'pypi-release',
-    stage='deploy',
-    image='yourlabs/python',
+    test=Script(Run('./shlaxfile.py -d test')),
 )
 
 gitlabci = GitLabCI(
     build=dict(
         stage='build',
         image='yourlabs/shlax',
+        script='./shlaxfile.py shlax build',
     ),
     test=dict(
         stage='test',
+        script='./shlaxfile.py -d test',
         image=build,
     ),
     pypi=dict(
         stage='deploy',
         only=['tags'],
         image='yourlabs/python',
+        script='pypi-release',
     ),
 )

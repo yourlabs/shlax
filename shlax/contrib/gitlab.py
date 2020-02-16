@@ -29,15 +29,10 @@ class GitLabCI(Script):
             job = self.kwargs[arg]
             _args = []
             if not isinstance(job['image'], str):
-                await job['image'](**kwargs)
                 image = str(job['image'].image)
-                _args.append('recreate')
             else:
                 image = job['image']
-            await Docker(
-                *cli.shlaxfile.actions[arg].actions,
-                image=image
-            )(*_args, **kwargs)
+            await self.action('Docker', Run(job['script']), image=image)(*_args, **kwargs)
 
     def colorized(self):
         return type(self).__name__

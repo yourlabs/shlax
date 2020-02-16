@@ -12,7 +12,7 @@ class Docker(Localhost):
     def __init__(self, *args, **kwargs):
         self.image = kwargs.get('image', 'alpine')
         if not isinstance(self.image, Image):
-            self.image = Image(image)
+            self.image = Image(self.image)
         super().__init__(*args, **kwargs)
         self.context['ctr'] = None
 
@@ -54,10 +54,6 @@ class Docker(Localhost):
 
         if self.context['ctr']:
             self.context['ctr'] = (await self.exec('docker', 'start', name)).out
-        else:
-            self.context['ctr'] = (
-                await self.exec('sleep', '120', daemon=True)
-            ).out
         return await super().call(*args, **kwargs)
 
     async def copy(self, *args):
