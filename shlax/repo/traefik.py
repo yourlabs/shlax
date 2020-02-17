@@ -5,7 +5,8 @@ Manage a traefik container maintained by Shlax community.
 
 from shlax import *
 
-main = Container(
+main = Docker(
+    name='traefik',
     image='traefik:v2.0.0',
     networks=['web'],
     command=[
@@ -26,5 +27,15 @@ main = Container(
         'traefik.http.routers.traefik.rule=Host(`{{ url.split("/")[2] }}`)',
         'traefik.http.routers.traefik.service=api@internal',
         'traefik.http.routers.traefik.entrypoints=web',
-    ]
+    ],
+    doc='Current traefik instance',
 )
+
+install = Script(
+    Htpasswd('./htpasswd', 'root'),
+    main.bind('up'),
+    doc='Deploy a Traefik instance',
+)
+
+up = main.bind('up')
+rm = main.bind('rm')

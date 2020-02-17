@@ -1,3 +1,4 @@
+from copy import deepcopy
 import functools
 import inspect
 import importlib
@@ -25,9 +26,17 @@ class Action:
         ),
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, doc=None, **kwargs):
         self.args = args
         self.kwargs = kwargs
+        self.call_args = []
+        self.call_kwargs = {}
+        self._doc = doc
+        self.menu = {
+            name: value
+            for name, value in kwargs.items()
+            if isinstance(value, Action)
+        }
 
     @property
     def context(self):
@@ -106,8 +115,8 @@ class Action:
         return Output(**kwargs)
 
     async def __call__(self, *args, **kwargs):
-        self.call_args = args
-        self.call_kwargs = kwargs
+        self.call_args = list(self.call_args) + list(args)
+        self.call_kwargs.update(kwargs)
         self.output = self.output_factory(*args, **kwargs)
         self.output_start()
         self.status = 'running'
@@ -209,3 +218,8 @@ class Action:
             from ..strategies.script import Actions
             self.actions = Actions(self, [p])
         return p
+
+    def bind(self, *args):
+        clone = deepcopy(self)
+        clone.call_args = args
+        return clone

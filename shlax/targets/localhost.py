@@ -8,6 +8,11 @@ from ..strategies.script import Script
 
 class Localhost(Script):
     root = '/'
+    contextualize = Script.contextualize + ['home']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.home = kwargs.pop('home', os.getcwd())
 
     def shargs(self, *args, **kwargs):
         user = kwargs.pop('user', None)
@@ -46,6 +51,9 @@ class Localhost(Script):
     async def env(self, name):
         return (await self.exec('echo $' + name)).out
 
+    async def exists(self, *paths):
+        proc = await self.exec('type ' + ' '.join(cmd), raises=False)
+
     async def which(self, *cmd):
         """
         Return the first path to the cmd in the container.
@@ -61,7 +69,10 @@ class Localhost(Script):
         return result
 
     async def copy(self, *args):
-        args = ['cp', '-ra'] + list(args)
+        if args[-1].startswith('./'):
+            args = list(args)
+            args[-1] = self.home + '/' + args[-1][2:]
+        args = ['cp', '-rua'] + list(args)
         return await self.exec(*args)
 
     async def mount(self, *dirs):

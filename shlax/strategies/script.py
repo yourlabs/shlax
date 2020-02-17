@@ -14,16 +14,17 @@ class Actions(list):
             self.append(action)
 
     def append(self, value):
-        value = copy.deepcopy(value)
-        value.parent = self.owner
-        value.status = 'pending'
-        super().append(value)
+        action = copy.deepcopy(value)
+        action.parent = self.owner
+        action.status = 'pending'
+        super().append(action)
 
 
 class Script(Action):
     contextualize = ['shargs', 'exec', 'rexec', 'env', 'which', 'copy']
 
     def __init__(self, *actions, **kwargs):
+        self.home = kwargs.pop('home', os.getcwd())
         super().__init__(**kwargs)
         self.actions = Actions(self, actions)
 
@@ -32,3 +33,9 @@ class Script(Action):
             result = await action(*args, **kwargs)
             if action.status != 'success':
                 break
+
+    def pollute(self, gbls):
+        for name, script in self.kwargs.items():
+            if not isinstance(script, Script):
+                continue
+            gbls[name] = script

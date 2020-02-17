@@ -11,10 +11,12 @@ class Docker(Localhost):
 
     def __init__(self, *args, **kwargs):
         self.image = kwargs.get('image', 'alpine')
+        self.name = kwargs.get('name', os.getcwd().split('/')[-1])
+
         if not isinstance(self.image, Image):
             self.image = Image(self.image)
+
         super().__init__(*args, **kwargs)
-        self.context['ctr'] = None
 
     def shargs(self, *args, daemon=False, **kwargs):
         if args[0] == 'docker':
@@ -26,9 +28,9 @@ class Docker(Localhost):
 
         args, kwargs = super().shargs(*args, **kwargs)
 
-        if self.context['ctr']:
+        if self.name:
             executor = 'exec'
-            extra = [self.context['ctr']]
+            extra = [self.name]
             return [self.kwargs.get('docker', 'docker'), executor, '-t'] + extra + list(args), kwargs
 
         executor = 'run'
@@ -39,22 +41,43 @@ class Docker(Localhost):
         return [self.kwargs.get('docker', 'docker'), executor, '-t'] + extra + [str(self.image)] + list(args), kwargs
 
     async def call(self, *args, **kwargs):
-        name = kwargs.get('name', os.getcwd()).split('/')[-1]
-        self.context['ctr'] = (
-            await self.exec(
-                'docker', 'ps', '-aq', '--filter',
-                'name=' + name,
-                raises=False
-            )
-        ).out.split('\n')[0]
+        def step(step):
+            return not args or step in args
 
-        if 'recreate' in args and self.context['ctr']:
-            await self.exec('docker', 'rm', '-f', self.context['ctr'])
-            self.context['ctr'] = None
+        # self.name = (
+        #     await self.exec(
+        #         'docker', 'ps', '-aq', '--filter',
+        #         'name=' + self.name,
+        #         raises=False
+        #     )
+        # ).out.split('\n')[0]
 
-        if self.context['ctr']:
-            self.context['ctr'] = (await self.exec('docker', 'start', name)).out
+        if step('rm'):
+            await self.rm(*args, **kwargs)
+
+        if step('down') and self.name:
+            await self.exec('docker', 'down', '-f', self.name)
+
+        if step('up'):
+            await self.up(*args, **kwargs)
         return await super().call(*args, **kwargs)
+
+    async def rm(self, *args, **kwargs):
+        return await self.exec('docker', 'rm', '-f', self.name)
+
+    async def down(self, *args, **kwargs):
+        """Remove instance, except persistent data if any"""
+        if self.name:
+            self.name = (await self.exec('docker', 'start', self.name)).out
+        else:
+            self.name = (await self.exec('docker', 'run', '-d', '--name', self.name)).out
+
+    async def up(self, *args, **kwargs):
+        """Perform start or run"""
+        if self.name:
+            self.name = (await self.exec('docker', 'start', self.name)).out
+        else:
+            self.id = (await self.exec('docker', 'run', '-d', '--name', self.name)).out
 
     async def copy(self, *args):
         src = args[:-1]
@@ -70,7 +93,7 @@ class Docker(Localhost):
             else:
                 args = ['docker', 'copy', self.ctr, s, dst]
             '''
-            args = ['docker', 'cp', s, self.context['ctr'] + ':' + dst]
+            args = ['docker', 'cp', s, self.name + ':' + dst]
             procs.append(self.exec(*args))
 
         return await asyncio.gather(*procs)

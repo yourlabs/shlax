@@ -36,31 +36,30 @@ class ConsoleScript(cli2.ConsoleScript):
 
             self.shlaxfile = Shlaxfile()
             self.shlaxfile.parse(shlaxfile)
-            if len(self.shlaxfile.actions) == 1 and 'main' in self.shlaxfile.actions:
+            self._doc = inspect.getdoc(mod)
+            if 'main' in self.shlaxfile.actions:
                 action = self.shlaxfile.actions['main']
-                self._doc = inspect.getdoc(action)
-                for name, doc in self.shlaxfile.actions['main'].doc.items():
+                for name, child in self.shlaxfile.actions['main'].menu.items():
                     self[name] = cli2.Callable(
                         name,
-                        action.callable(),
-                        options={
-                            k: cli2.Option(name=k, **v)
-                            for k, v in action.options.items()
-                        },
-                        color=getattr(action, 'color', cli2.YELLOW),
-                        doc=doc,
-                    )
-            else:
-                for name, action in self.shlaxfile.actions.items():
-                    self[name] = cli2.Callable(
-                        name,
-                        action.callable(),
+                        child.callable(),
                         options={
                             k: cli2.Option(name=k, **v)
                             for k, v in action.options.items()
                         },
                         color=getattr(action, 'color', cli2.YELLOW),
                     )
+            for name, action in self.shlaxfile.actions.items():
+                self[name] = cli2.Callable(
+                    name,
+                    action.callable(),
+                    options={
+                        k: cli2.Option(name=k, **v)
+                        for k, v in action.options.items()
+                    },
+                    color=getattr(action, 'color', cli2.YELLOW),
+                    doc=inspect.getdoc(getattr(action, name, None)) or action._doc,
+                )
         else:
             from shlax import repo
             path = repo.__path__._path[0]
