@@ -33,10 +33,10 @@ class ConsoleScript(cli2.ConsoleScript):
                     self.exit_code = 1
                     return
                 shlaxfile = mod.__file__
+                self._doc = inspect.getdoc(mod)
 
             self.shlaxfile = Shlaxfile()
             self.shlaxfile.parse(shlaxfile)
-            self._doc = inspect.getdoc(mod)
             if 'main' in self.shlaxfile.actions:
                 action = self.shlaxfile.actions['main']
                 for name, child in self.shlaxfile.actions['main'].menu.items():
