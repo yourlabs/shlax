@@ -35,9 +35,7 @@ class Localhost(Script):
             return args, kwargs
 
     async def exec(self, *args, **kwargs):
-        if 'debug' not in kwargs:
-            kwargs['debug'] = getattr(self, 'call_kwargs', {}).get('debug', False)
-        kwargs.setdefault('output', self.output)
+        kwargs['output'] = self.output
         args, kwargs = self.shargs(*args, **kwargs)
         proc = await Proc(*args, **kwargs)()
         if kwargs.get('wait', True):

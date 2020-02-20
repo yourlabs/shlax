@@ -16,7 +16,7 @@ class Shlaxfile:
         spec.loader.exec_module(mod)
         for name, value in mod.__dict__.items():
             if isinstance(value, Action):
-                value.name = name
+                value.__name__ = name
                 self.actions[name] = value
             elif callable(value) and getattr(value, '__name__', '').startswith('test_'):
                 self.tests[value.__name__] = value

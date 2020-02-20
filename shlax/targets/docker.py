@@ -7,7 +7,8 @@ from .localhost import Localhost
 
 
 class Docker(Localhost):
-    contextualize = Localhost.contextualize + ['mnt', 'ctr', 'mount']
+    """Manage a docker container."""
+    default_steps = ['install', 'up']
 
     def __init__(self, *args, **kwargs):
         self.image = kwargs.get('image', 'alpine')
@@ -51,33 +52,29 @@ class Docker(Localhost):
         #         raises=False
         #     )
         # ).out.split('\n')[0]
+        if step('install') and 'install' in self.kwargs:
+            breakpoint()
+            await self.action(self.kwargs['install'], *args, **kwargs)
 
-        if step('rm'):
-            await self.rm(*args, **kwargs)
-
-        if step('down') and self.name:
-            await self.exec('docker', 'down', '-f', self.name)
+        if step('rm') and await self.exists():
+            await self.exec('docker', 'rm', '-f', self.name)
 
         if step('up'):
-            await self.up(*args, **kwargs)
+            if await self.exists():
+                self.name = (await self.exec('docker', 'start', self.name)).out
+            else:
+                self.id = (await self.exec(
+                    'docker', 'run', '-d', '--name', self.name, str(self.image))
+                ).out
         return await super().call(*args, **kwargs)
 
-    async def rm(self, *args, **kwargs):
-        return await self.exec('docker', 'rm', '-f', self.name)
-
-    async def down(self, *args, **kwargs):
-        """Remove instance, except persistent data if any"""
-        if self.name:
-            self.name = (await self.exec('docker', 'start', self.name)).out
-        else:
-            self.name = (await self.exec('docker', 'run', '-d', '--name', self.name)).out
-
-    async def up(self, *args, **kwargs):
-        """Perform start or run"""
-        if self.name:
-            self.name = (await self.exec('docker', 'start', self.name)).out
-        else:
-            self.id = (await self.exec('docker', 'run', '-d', '--name', self.name)).out
+    async def exists(self):
+        proc = await self.exec(
+            'docker', 'ps', '-aq', '--filter',
+            'name=' + self.name,
+            raises=False
+        )
+        return bool(proc.out.strip())
 
     async def copy(self, *args):
         src = args[:-1]
@@ -97,3 +94,18 @@ class Docker(Localhost):
             procs.append(self.exec(*args))
 
         return await asyncio.gather(*procs)
+
+    async def up(self):
+        """Ensure container is up and running."""
+        if await self.exists():
+            self.name = (await self.exec('docker', 'start', self.name)).out
+        else:
+            self.id = (await self.exec(
+                'docker', 'run', '-d', '--name', self.name, str(self.image))
+            ).out
+    up.shlaxstep = True
+
+    async def rm(self):
+        """Remove container."""
+        await self.exec('docker', 'rm', '-f', self.name)
+    rm.shlaxstep = True

@@ -3,11 +3,15 @@
 Manage a traefik container maintained by Shlax community.
 """
 
-from shlax import *
+from shlax.shortcuts import *
+
 
 main = Docker(
     name='traefik',
     image='traefik:v2.0.0',
+    install=Htpasswd(
+        './htpasswd', 'root', doc='Install root user in ./htpasswd'
+    ),
     networks=['web'],
     command=[
         '--entrypoints.web.address=:80',
@@ -28,14 +32,4 @@ main = Docker(
         'traefik.http.routers.traefik.service=api@internal',
         'traefik.http.routers.traefik.entrypoints=web',
     ],
-    doc='Current traefik instance',
 )
-
-install = Script(
-    Htpasswd('./htpasswd', 'root'),
-    main.bind('up'),
-    doc='Deploy a Traefik instance',
-)
-
-up = main.bind('up')
-rm = main.bind('rm')

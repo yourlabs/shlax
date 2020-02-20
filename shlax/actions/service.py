@@ -4,6 +4,9 @@ from .base import Action
 
 
 class Service(Action):
+    """
+    Manage a systemd service.
+    """
     def __init__(self, *names, state=None):
         self.state = state or 'started'
         self.names = names

@@ -5,6 +5,8 @@ from .base import Action
 
 
 class Pip(Action):
+    """Pip abstraction layer."""
+
     def __init__(self, *pip_packages, pip=None, requirements=None):
         self.requirements = requirements
         super().__init__(*pip_packages, pip=pip, requirements=requirements)

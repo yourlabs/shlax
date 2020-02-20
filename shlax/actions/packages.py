@@ -12,14 +12,13 @@ from .base import Action
 
 class Packages(Action):
     """
-    The Packages visitor wraps around the container's package manager.
+    Package manager abstract layer with caching.
 
     It's a central piece of the build process, and does iterate over other
     container visitors in order to pick up packages. For example, the Pip
     visitor will declare ``self.packages = dict(apt=['python3-pip'])``, and the
     Packages visitor will pick it up.
     """
-    contextualize = ['mgr']
     regexps = {
         #r'Installing ([\w\d-]+)': '{cyan}\\1',
         r'Installing': '{cyan}lol',
@@ -106,12 +105,12 @@ class Packages(Action):
                     print(f'{self.container.name} | Waiting for update ...')
                     await asyncio.sleep(1)
 
-    async def call(self, *args, **kwargs):
-        cached = getattr(self, '_pagkages_mgr', None)
+    async def apply(self):
+        cached = getattr(self.target, 'pkgmgr', None)
         if cached:
             self.mgr = cached
         else:
-            mgr = await self.which(*self.mgrs.keys())
+            mgr = await self.target.which(*self.mgrs.keys())
             if mgr:
                 self.mgr = mgr[0].split('/')[-1]
 
@@ -122,7 +121,7 @@ class Packages(Action):
         if not getattr(self, '_packages_upgraded', None):
             await self.update()
             if self.kwargs.get('upgrade', True):
-                await self.rexec(self.cmds['upgrade'])
+                await self.target.exec(self.cmds['upgrade'], user='root')
             self._packages_upgraded = True
 
         packages = []
@@ -136,7 +135,7 @@ class Packages(Action):
             else:
                 packages.append(package)
 
-        await self.rexec(*self.cmds['install'].split(' ') + packages)
+        await self.target.exec(*self.cmds['install'].split(' ') + packages, user='root')
 
     async def apk_setup(self):
         cachedir = os.path.join(self.cache_root, self.mgr)

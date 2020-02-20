@@ -104,7 +104,7 @@ class Output:
                 self.colors['purplebold'],
                 '!  TEST   ',
                 self.colors['reset'],
-                action.colorized(),
+                action.colorized(self.colors),
                 '\n',
             ]))
 
@@ -114,7 +114,7 @@ class Output:
                 self.colors['bluebold'],
                 '+  CLEAN  ',
                 self.colors['reset'],
-                action.colorized(),
+                action.colorized(self.colors),
                 '\n',
             ]))
 
@@ -124,7 +124,7 @@ class Output:
                 self.colors['orangebold'],
                 '⚠  START  ',
                 self.colors['reset'],
-                action.colorized(),
+                action.colorized(self.colors),
                 '\n',
             ]))
 
@@ -134,7 +134,7 @@ class Output:
                 self.colors['greenbold'],
                 '✔ SUCCESS ',
                 self.colors['reset'],
-                action.colorized() if hasattr(action, 'colorized') else str(action),
+                action.colorized(self.colors) if hasattr(action, 'colorized') else str(action),
                 '\n',
             ]))
 
@@ -144,6 +144,6 @@ class Output:
                 self.colors['redbold'],
                 '✘  FAIL   ',
                 self.colors['reset'],
-                action.colorized() if hasattr(action, 'colorized') else str(action),
+                action.colorized(self.colors) if hasattr(action, 'colorized') else str(action),
                 '\n',
             ]))

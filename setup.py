@@ -5,7 +5,7 @@ setup(
     name='shlax',
     versioning='dev',
     setup_requires='setupmeta',
-    install_requires=['cli2>=1.1.6'],
+    install_requires=['cli2'],
     extras_require=dict(
         full=[
             'pyyaml',
