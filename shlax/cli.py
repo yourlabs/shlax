@@ -160,6 +160,7 @@ class ConsoleScript(cli2.ConsoleScript):
             # ??? gotta be missing something, commenting meanwhile
             # action = copy.deepcopy(action)
             return await action(*self.parser.targets, **options)
+        cb.__name__ = type(action).__name__
         return cb
 
     def action_class(self, action_class):
@@ -214,6 +215,7 @@ class ConsoleScript(cli2.ConsoleScript):
             options.update(self.parser.options)
             return await action_class(*_args, **kwargs)(*self.parser.targets, **options)
         cb.__doc__ = (inspect.getdoc(action_class) or '').split("\n")[0]
+        cb.__name__ = action_class.__name__
         return cb
 
     def call(self, command):

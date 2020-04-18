@@ -42,7 +42,8 @@ class Action:
             '''.strip(),
             immediate=True,
         ),
-        v=dict(
+        verbose=dict(
+            alias='v',
             default=False,
             help='Verbose, like -d=visit,cmd,out',
             immediate=True,
@@ -117,7 +118,7 @@ class Action:
 
         output = Output(
             regexp=self.regexps,
-            debug='cmd,visit,out' if options['v'] else options['debug'],
+            debug='cmd,visit,out' if options['verbose'] else options['debug'],
         )
         results = []
         for target in targets:
