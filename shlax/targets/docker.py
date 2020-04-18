@@ -9,6 +9,7 @@ from .localhost import Localhost
 class Docker(Localhost):
     """Manage a docker container."""
     default_steps = ['install', 'up']
+    contextualize = ['image', 'home']
 
     def __init__(self, *args, **kwargs):
         self.image = kwargs.get('image', 'alpine')
@@ -53,7 +54,6 @@ class Docker(Localhost):
         #     )
         # ).out.split('\n')[0]
         if step('install') and 'install' in self.kwargs:
-            breakpoint()
             await self.action(self.kwargs['install'], *args, **kwargs)
 
         if step('rm') and await self.exists():

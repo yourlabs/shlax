@@ -116,16 +116,31 @@ class ConsoleScript(cli2.ConsoleScript):
                                 }
                             )
                         else:
-                            for name, method in value.steps().items():
-                                self[modname][name] = cli2.Callable(
-                                    modname,
-                                    self.action(value),
-                                    doc=inspect.getdoc(method),
-                                    options={
-                                        option: cli2.Option(option, **cfg)
-                                        for option, cfg in value.options.items()
-                                    }
-                                )
+                            for name, step in value.steps().items():
+                                if isinstance(step, Action):
+                                    self[modname][name] = cli2.Callable(
+                                        modname,
+                                        self.action(step),
+                                        doc=inspect.getdoc(step),
+                                        options={
+                                            option: cli2.Option(option, **cfg)
+                                            for option, cfg in value.options.items()
+                                        }
+                                    )
+                                else:
+                                    # should be a method, just clone the
+                                    # original action and replace default_steps
+                                    action = copy.deepcopy(value)
+                                    action.default_steps = [name]
+                                    self[modname][name] = cli2.Callable(
+                                        modname,
+                                        self.action(action),
+                                        doc=inspect.getdoc(step),
+                                        options={
+                                            option: cli2.Option(option, **cfg)
+                                            for option, cfg in value.options.items()
+                                        }
+                                    )
                     else:
                         if len(value.steps()) == 1:
                             self[modname][key] = cli2.Callable(
