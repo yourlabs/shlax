@@ -94,7 +94,7 @@ class Packages(Action):
                     f.write(str(os.getpid()))
 
                 try:
-                    await self.rexec(self.cmds['update'])
+                    await self.target.rexec(self.cmds['update'])
                 finally:
                     os.unlink(lockfile)
 
@@ -102,7 +102,7 @@ class Packages(Action):
                     f.write(str(now))
             else:
                 while os.path.exists(lockfile):
-                    print(f'{self.container.name} | Waiting for update ...')
+                    print(f'{self.target} | Waiting for {lockfile} ...')
                     await asyncio.sleep(1)
 
     async def apply(self):

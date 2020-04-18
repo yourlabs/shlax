@@ -9,11 +9,10 @@ from ..exceptions import WrongResult
 from ..result import Result
 
 
-
-
 class class_or_instance_method:
     def __init__(self, f):
         self.f = f
+
     def __get__(self, instance, owner):
         def newfunc(*args, **kwargs):
             return self.f(
@@ -43,10 +42,16 @@ class Action:
             '''.strip(),
             immediate=True,
         ),
+        v=dict(
+            default=False,
+            help='Verbose, like -d=visit,cmd,out',
+            immediate=True,
+        ),
     )
 
     def __init__(self, *args, **kwargs):
         self.args = args
+        self.kwargs = kwargs
         for key, value in kwargs.items():
             setattr(self, key, value)
             if isinstance(value, Action):
@@ -110,7 +115,10 @@ class Action:
             from ..targets.localhost import Localhost
             targets = [Localhost()]
 
-        output = Output(regexp=self.regexps, debug=True)
+        output = Output(
+            regexp=self.regexps,
+            debug='cmd,visit,out' if options['v'] else options['debug'],
+        )
         results = []
         for target in targets:
             target.output = output
@@ -130,7 +138,10 @@ class Action:
                 action.step = step
                 output.start(action)
                 try:
-                    await getattr(action, step)()
+                    if isinstance(getattr(action, step), Action):
+                        await getattr(action, step)(**options)
+                    else:
+                        await getattr(action, step)()
                 except Exception as e:
                     output.fail(action, e)
                     action.result.status = 'fail'

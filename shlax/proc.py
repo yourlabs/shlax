@@ -54,8 +54,7 @@ class Proc:
     """
     test = False
 
-    def __init__(self, *args, prefix=None, raises=True, debug=None, output=None):
-        self.debug = debug if not self.test else False
+    def __init__(self, *args, prefix=None, raises=True, output=None):
         self.output = output or Output()
         self.cmd = ' '.join(args)
         self.args = args
@@ -87,7 +86,7 @@ class Proc:
         if self.called:
             raise Exception('Already called: ' + self.cmd)
 
-        if self.debug is True or 'cmd' in str(self.debug):
+        if 'cmd' in str(self.output.debug):
             self.output.cmd(self.cmd)
 
         if self.test:

@@ -46,20 +46,53 @@ class ConsoleScript(cli2.ConsoleScript):
                 super().append(arg)
 
     def __call__(self):
-        if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
-            pass
+        if len(self.argv) > 1 and os.path.exists(self.argv[1]):
+            self.argv = sys.argv[1:]
+
+            spec = importlib.util.spec_from_file_location('shlaxfile', sys.argv[1])
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            self.doc = (inspect.getdoc(mod) or '').split("\n")[0]
+            for name, value in mod.__dict__.items():
+                if isinstance(value, Action):
+                    self[name] = cli2.Callable(
+                        name,
+                        self.action(value),
+                        doc=type(value).__doc__,
+                        options={
+                            option: cli2.Option(option, **cfg)
+                            for option, cfg in value.options.items()
+                        }
+                    )
+                    #self[name] = value
+                #elif callable(value) and getattr(value, '__name__', '').startswith('test_'):
+                #    self.tests[value.__name__] = value
+
+            #modname = sys.argv[1].split('/')[-1].replace('.py', '')
+            #mod = importlib.import_module('shlax.actions.' + modname)
         else:
             scripts = glob.glob(os.path.join(
                 os.path.dirname(__file__), 'actions', '*.py'))
             for script in scripts:
                 modname = script.split('/')[-1].replace('.py', '')
+                if modname == '__init__':
+                    continue
+
                 mod = importlib.import_module('shlax.actions.' + modname)
                 for key, value in mod.__dict__.items():
+                    if key == '__builtins__':
+                        continue
                     if key.lower() != modname:
                         continue
                     break
                 self[modname] = cli2.Callable(
-                    modname, self.action_class(value))
+                    modname,
+                    self.action_class(value),
+                    options={
+                        option: cli2.Option(option, **cfg)
+                        for option, cfg in value.options.items()
+                    }
+                )
 
             scripts = glob.glob(os.path.join(
                 os.path.dirname(__file__), 'repo', '*.py'))
@@ -74,22 +107,48 @@ class ConsoleScript(cli2.ConsoleScript):
                     if key == 'main':
                         if len(value.steps()) == 1:
                             self[modname] = cli2.Callable(
-                                modname, self.action(value), doc=doc)
+                                modname,
+                                self.action(value),
+                                doc=doc,
+                                options={
+                                    option: cli2.Option(option, **cfg)
+                                    for option, cfg in value.options.items()
+                                }
+                            )
                         else:
                             for name, method in value.steps().items():
                                 self[modname][name] = cli2.Callable(
-                                    modname, self.action(value),
-                                    doc=inspect.getdoc(method)
+                                    modname,
+                                    self.action(value),
+                                    doc=inspect.getdoc(method),
+                                    options={
+                                        option: cli2.Option(option, **cfg)
+                                        for option, cfg in value.options.items()
+                                    }
                                 )
                     else:
                         if len(value.steps()) == 1:
                             self[modname][key] = cli2.Callable(
-                                modname, self.action(value), doc=doc)
+                                modname,
+                                self.action(value),
+                                doc=doc,
+                                options={
+                                    option: cli2.Option(option, **cfg)
+                                    for option, cfg in value.options.items()
+                                }
+                            )
                         else:
                             self[modname][key] = cli2.Group('steps')
                             for step in value.steps():
                                 self[modname][key][step] = cli2.Callable(
-                                    modname, self.action(value), doc='lol')
+                                    modname,
+                                    self.action(value),
+                                    doc='lol',
+                                    options={
+                                        option: cli2.Option(option, **cfg)
+                                        for option, cfg in value.options.items()
+                                    }
+                                )
 
         return super().__call__()
 
