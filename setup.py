@@ -5,10 +5,9 @@ setup(
     name='shlax',
     versioning='dev',
     setup_requires='setupmeta',
-    install_requires=['cli2'],
     extras_require=dict(
-        full=[
-            'pyyaml',
+        cli=[
+            'cli2',
         ],
         test=[
             'pytest',
