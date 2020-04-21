@@ -3,13 +3,17 @@ build:
     key: cache
     paths: [.cache]
   image: yourlabs/python
-  script: pip install -U --user -e .[cli] && CACHE_DIR=$(pwd)/.cache ./shlaxfile.py build
+  script:
+  - pip install -U --user -e .[cli]
+  - CACHE_DIR=$(pwd)/.cache ~/.local/bin/shlax ./shlaxfile.py build
   stage: build
 
 test:
   image: yourlabs/python
   stage: build
-  script: pip install -U --user -e .[test] && py.test -sv tests
+  script:
+  - pip install -U --user -e .[test]
+  - py.test -sv tests
 
 pypi:
   image: yourlabs/python
