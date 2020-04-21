@@ -2,7 +2,7 @@ build:
   cache:
     key: cache
     paths: [.cache]
-  image: yourlabs/shlax
+  image: yourlabs/python
   script: pip install -U --user -e .[cli] && CACHE_DIR=$(pwd)/.cache ./shlaxfile.py build
   stage: build
 
