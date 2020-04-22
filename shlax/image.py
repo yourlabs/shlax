@@ -1,6 +1,7 @@
 import os
 import re
 
+
 class Image:
     ENV_TAGS = (
         # gitlab

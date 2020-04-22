@@ -2,14 +2,24 @@ build:
   cache:
     key: cache
     paths: [.cache]
-  image: yourlabs/shlax
-  script: pip install -U --user -e . && CACHE_DIR=$(pwd)/.cache ./shlaxfile.py -d
-    shlax build push
+  image: quay.io/buildah/stable
+  script:
+  - dnf install -y curl python38
+  - curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+  - python3.8 get-pip.py
+  - pip3.8 install -U --user -e .[cli]
+  - CACHE_DIR=$(pwd)/.cache ~/.local/bin/shlax ./shlaxfile.py build
   stage: build
+
+test:
+  image: yourlabs/python
+  stage: build
+  script:
+  - pip install -U --user -e .[test]
+  - py.test -sv tests
+
 pypi:
   image: yourlabs/python
   only: [tags]
   script: pypi-release
   stage: deploy
-test: {image: yourlabs/python, script: 'pip install -U --user -e .[test] && py.test
-    -svv tests', stage: build}

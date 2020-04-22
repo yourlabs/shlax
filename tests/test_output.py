@@ -1,5 +1,5 @@
 import pytest
-from shlax import Output
+from shlax.output import Output
 
 
 class Write:
