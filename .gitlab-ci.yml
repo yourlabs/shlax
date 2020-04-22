@@ -2,9 +2,12 @@ build:
   cache:
     key: cache
     paths: [.cache]
-  image: yourlabs/python
+  image: quay.io/buildah/stable
   script:
-  - pip install -U --user -e .[cli]
+  - dnf install -y curl python38
+  - curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+  - python3.8 get-pip.py
+  - pip3.8 install -U --user -e .[cli]
   - CACHE_DIR=$(pwd)/.cache ~/.local/bin/shlax ./shlaxfile.py build
   stage: build
 
