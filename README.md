@@ -187,12 +187,13 @@ class Docker(Target):
         return await self.parent.exec(*['docker', 'exec', self.name] + args)
 ```
 
-Don't worry about `self.parent` being set, it is enforced to `Localhost` if
-unset so that we always have something that actually spawns a process in the
-chain ;)
+This also means that you always need a parent with an exec implementation,
+there are two:
 
-The result of that design is that the following use cases are open for
-business:
+- Localhost, executes on localhost
+- Stub, for testing
+
+The result of that design is that the following use cases are available:
 
 ```python
 # This action installs my favorite package on any distro
@@ -215,14 +216,48 @@ Ssh(host='yourhost')(build)
 
 # Or on a server behingh a bastion:
 # ssh yourbastion ssh yourhost build exec apt install python3
-Ssh(host='bastion')(Ssh(host='yourhost')(build))
+Localhost()(Ssh(host='bastion')(Ssh(host='yourhost')(build))
 
 # That's going to do the same
-Ssh(
+Localhost(Ssh(
     Ssh(
         build,
         host='yourhost'
     ),
     host='bastion'
-)()
+))()
+```
+
+## CLI
+
+You should build your CLI with your favorite CLI framework. Nonetheless, shlax
+provides a ConsoleScript built on cli2 (a personnal experiment, still pre-alpha
+stage) that will expose any callable you define in a script, for example:
+
+```python
+#!/usr/bin/env shlax
+
+from shlax.shortcuts import *
+
+webpack = Container(
+    build=Buildah(
+        Packages('npm')
+    )
+)
+
+django = Container(
+    build=Buildah(
+        Packages('python')
+    )
+)
+
+pod = Pod(
+    django=django,
+    webpack=webpack,
+)
+```
+
+Running this file will output:
+
+```
 ```

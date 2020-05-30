@@ -12,8 +12,7 @@ class Buildah(Target):
     def __init__(self,
                  *actions,
                  base=None, commit=None,
-                 cmd=None,
-                 **options):
+                 cmd=None):
         self.base = base or 'alpine'
         self.image = Image(commit) if commit else None
 
@@ -28,7 +27,7 @@ class Buildah(Target):
         # Always consider localhost as parent for now
         self.parent = Target()
 
-        super().__init__(*actions, **options)
+        super().__init__(*actions)
 
     def is_runnable(self):
         return Proc.test or os.getuid() == 0
@@ -39,7 +38,9 @@ class Buildah(Target):
         return 'Buildah image builder'
 
     async def __call__(self, *actions, target=None):
-        self.parent = target
+        if target:
+            self.parent = target
+
         if not self.is_runnable():
             os.execvp('buildah', ['buildah', 'unshare'] + sys.argv)
             # program has been replaced
