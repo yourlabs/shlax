@@ -14,13 +14,21 @@ class Target:
         self.parent = None
 
     @property
+    def parent(self):
+        return self._parent or Target()
+
+    @parent.setter
+    def parent(self, value):
+        self._parent = value
+
+    @property
     def caller(self):
         """Traverse parents and return the top-levels Target."""
-        if not self.parent:
+        if not self._parent:
             return self
-        caller = self.parent
-        while caller.parent:
-            caller = caller.parent
+        caller = self._parent
+        while caller._parent:
+            caller = caller._parent
         return caller
 
     async def __call__(self, *actions, target=None):
@@ -77,5 +85,32 @@ class Target:
                 result.append(match.group(1))
         return result
 
+    def shargs(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        args = [str(arg) for arg in args if args is not None]
+
+        if args and ' ' in args[0]:
+            if len(args) == 1:
+                args = ['sh', '-euc', args[0]]
+            else:
+                args = ['sh', '-euc'] + list(args)
+
+        if user == 'root':
+            args = ['sudo'] + args
+        elif user:
+            args = ['sudo', '-u', user] + args
+
+        return args, kwargs
+
+        if self.parent:
+            return self.parent.shargs(*args, **kwargs)
+        else:
+            return args, kwargs
+
     async def exec(self, *args, **kwargs):
-        raise Exception(f'{self} should run in Localhost() or Stub()')
+        kwargs['output'] = self.output
+        args, kwargs = self.shargs(*args, **kwargs)
+        proc = await Proc(*args, **kwargs)()
+        if kwargs.get('wait', True):
+            await proc.wait()
+        return proc
