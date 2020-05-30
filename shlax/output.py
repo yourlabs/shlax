@@ -141,6 +141,16 @@ class Output:
                 '\n',
             ]))
 
+    def skip(self, action):
+        if self.debug is True or 'visit' in str(self.debug):
+            self(''.join([
+                self.colors['yellowbold'],
+                '↪️ SKIP    ',
+                self.colors['reset'],
+                self.colorized(action),
+                '\n',
+            ]))
+
     def success(self, action):
         if self.debug is True or 'visit' in str(self.debug):
             self(''.join([

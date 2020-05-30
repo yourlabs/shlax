@@ -1,3 +1,4 @@
+import copy
 import os
 import re
 
@@ -74,3 +75,8 @@ class Image:
 
         for tag in self.tags:
             await action.exec('buildah', 'push', f'{self.repository}:{tag}')
+
+    def layer(self, key):
+        layer = copy.deepcopy(self)
+        layer.tags = [key]
+        return layer

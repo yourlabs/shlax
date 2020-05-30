@@ -163,9 +163,3 @@ class Packages:
 
     def __repr__(self):
         return f'Packages({self.packages}, upgrade={self.upgrade})'
-
-    def layerhasher(self, parent=None):
-        import hashlib
-        blurb = (parent or '') + repr(self)
-        sha1 = hashlib.sha1(blurb.encode('ascii'))
-        return sha1.hexdigest()
