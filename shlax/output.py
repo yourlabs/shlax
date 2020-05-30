@@ -25,15 +25,14 @@ class Output:
     def colorize(self, code, content):
         return self.color(code) + content + self.color()
 
-    def colorized(self):
-        if hasattr(self.subject, 'colorized'):
-            return self.subject.colorized(self.colors)
+    def colorized(self, action):
+        if hasattr(action, 'colorized'):
+            return action.colorized(self.colors)
         else:
-            return str(self.subject)
+            return str(action)
 
     def __init__(
             self,
-            subject=None,
             prefix=None,
             regexps=None,
             debug='cmd,visit,out',
@@ -41,7 +40,6 @@ class Output:
             flush=None,
             **kwargs
         ):
-        self.subject = subject
         self.prefix = prefix
         self.debug = debug
         self.prefix_length = 0
@@ -114,59 +112,59 @@ class Output:
 
         return line
 
-    def test(self):
+    def test(self, action):
         self(''.join([
             self.colors['purplebold'],
             '!  TEST   ',
             self.colors['reset'],
-            self.colorized(),
+            self.colorized(action),
             '\n',
         ]))
 
-    def clean(self):
+    def clean(self, action):
         if self.debug:
             self(''.join([
                 self.colors['bluebold'],
                 '+  CLEAN  ',
                 self.colors['reset'],
-                self.colorized(),
+                self.colorized(action),
                 '\n',
             ]))
 
-    def start(self):
+    def start(self, action):
         if self.debug is True or 'visit' in str(self.debug):
             self(''.join([
                 self.colors['orangebold'],
                 '⚠  START  ',
                 self.colors['reset'],
-                self.colorized(),
+                self.colorized(action),
                 '\n',
             ]))
 
-    def success(self):
+    def success(self, action):
         if self.debug is True or 'visit' in str(self.debug):
             self(''.join([
                 self.colors['greenbold'],
                 '✔ SUCCESS ',
                 self.colors['reset'],
-                self.colorized(),
+                self.colorized(action),
                 '\n',
             ]))
 
-    def fail(self, exception=None):
+    def fail(self, action, exception=None):
         if self.debug is True or 'visit' in str(self.debug):
             self(''.join([
                 self.colors['redbold'],
                 '✘  FAIL   ',
                 self.colors['reset'],
-                self.colorized(),
+                self.colorized(action),
                 '\n',
             ]))
 
-    def results(self):
+    def results(self, action):
         success = 0
         fail = 0
-        for result in self.subject.results:
+        for result in action.results:
             if result.status == 'success':
                 success += 1
             if result.status == 'failure':

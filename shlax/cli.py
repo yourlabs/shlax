@@ -5,6 +5,7 @@ Shlax executes mostly in 3 ways:
 - With the name of a module in shlax.repo: a community maintained shlaxfile
 """
 import ast
+import asyncio
 import cli2
 import glob
 import inspect
@@ -49,7 +50,19 @@ class ConsoleScript(cli2.ConsoleScript):
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         for member in members:
-            from shlax.targets.localhost import Localhost
-            self[member] = cli2.Callable(member, Localhost(getattr(mod, member)))
+            subject = getattr(mod, member)
+            if callable(subject):
+                self[member] = cli2.Callable(member, subject)
+            else:
+                importable = cli2.Importable(member, subject)
+                self[member] = cli2.Group(member)
+                for cb in importable.get_callables():
+                    self[member][cb.name] = cb
+
+    def call(self, command):
+        if command.name == 'help':
+            return super().call(command)
+        from shlax.targets.localhost import Localhost
+        asyncio.run(Localhost()(command.target))
 
 cli = ConsoleScript(__doc__)

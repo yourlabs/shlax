@@ -52,8 +52,9 @@ class Packages:
 
     installed = []
 
-    def __init__(self, *packages):
+    def __init__(self, *packages, upgrade=True):
         self.packages = []
+        self.upgrade = upgrade
         for package in packages:
             line = dedent(package).strip().replace('\n', ' ')
             self.packages += line.split(' ')
@@ -116,7 +117,8 @@ class Packages:
 
         self.cmds = self.mgrs[self.mgr]
         await self.update(target)
-        await target.rexec(self.cmds['upgrade'])
+        if self.upgrade:
+            await target.rexec(self.cmds['upgrade'])
 
         packages = []
         for package in self.packages:
@@ -160,4 +162,4 @@ class Packages:
         return self.cache_root + '/pacman'
 
     def __repr__(self):
-        return f'Packages({self.packages})'
+        return f'Packages({self.packages}, upgrade={self.upgrade})'

@@ -7,11 +7,10 @@ from ..result import Result, Results
 
 
 class Target:
-    def __init__(self, *actions, **options):
+    def __init__(self, *actions):
         self.actions = actions
-        self.options = options
         self.results = []
-        self.output = Output(self, **self.options)
+        self.output = Output()
         self.parent = None
 
     @property
@@ -32,13 +31,11 @@ class Target:
 
         for action in actions or self.actions:
             result = Result(self, action)
-
-            self.output = Output(action, **self.options)
-            self.output.start()
+            self.output.start(action)
             try:
                 await action(target=self)
             except Exception as e:
-                self.output.fail(e)
+                self.output.fail(action, e)
                 result.status = 'failure'
                 result.exception = e
                 if actions:
@@ -47,7 +44,7 @@ class Target:
                 else:
                     break
             else:
-                self.output.success()
+                self.output.success(action)
                 result.status = 'success'
             finally:
                 self.caller.results.append(result)
@@ -55,7 +52,7 @@ class Target:
                 clean = getattr(action, 'clean', None)
                 if clean:
                     action.result = result
-                    self.output.clean()
+                    self.output.clean(action)
                     await clean(self)
 
     async def rexec(self, *args, **kwargs):
@@ -77,4 +74,4 @@ class Target:
         return result
 
     async def exec(self, *args, **kwargs):
-        raise NotImplemented()
+        raise Exception(f'{self} should run in Localhost() or Stub()')
