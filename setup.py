@@ -24,7 +24,7 @@ setup(
     python_requires='>=3',
     entry_points={
         'console_scripts': [
-            'shlax = shlax.cli:cli',
+            'shlax = shlax.cli:cli.entry_point',
         ],
     },
 )
