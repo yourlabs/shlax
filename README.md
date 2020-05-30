@@ -1,9 +1,8 @@
 # Shlax: Pythonic automation tool
 
 Shlax is a Python framework for system automation, initially with the purpose
-of replacing docker, docker-compose and ansible with a single tool, with the
-purpose of code-reuse. It may be viewed as "async fabric rewrite by a
-megalomanic Django fanboy".
+of replacing docker, docker-compose and ansible with a single tool with the
+purpose of code-reuse made possible by target abstraction.
 
 The pattern resolves around two moving parts: Actions and Targets.
 
@@ -230,34 +229,30 @@ Localhost(Ssh(
 
 ## CLI
 
-You should build your CLI with your favorite CLI framework. Nonetheless, shlax
-provides a ConsoleScript built on cli2 (a personnal experiment, still pre-alpha
-stage) that will expose any callable you define in a script, for example:
+You can execute Shlax actions directly on the command line with the `shlax` CLI
+command.
+
+For your own Shlaxfiles, you can build your CLI with your favorite CLI
+framework. If you decide to use `cli2`, then Shlax provides a thin layer on top
+of it: Group and Command objects made for Shlax objects.
+
+For example:
 
 ```python
-#!/usr/bin/env shlax
-
-from shlax.shortcuts import *
-
-webpack = Container(
+yourcontainer = Container(
     build=Buildah(
-        Packages('npm')
-    )
+        User('app', '/app', 1000),
+        Packages('python', 'unzip', 'findutils'),
+        Copy('setup.py', 'yourdir', '/app'),
+        base='archlinux',
+        commit='yourimage',
+    ),
 )
 
-django = Container(
-    build=Buildah(
-        Packages('python')
-    )
-)
 
-pod = Pod(
-    django=django,
-    webpack=webpack,
-)
+if __name__ == '__main__':
+    print(Group(doc=__doc__).load(yourcontainer).entry_point())
 ```
 
-Running this file will output:
-
-```
-```
+The above will execute a cli2 command with each method of yourcontainer as a
+sub-command.
