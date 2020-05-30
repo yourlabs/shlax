@@ -22,7 +22,7 @@ class Buildah(Target):
         self.image = Image(commit) if commit else None
 
         self.ctr = None
-        self.mnt = None
+        self.root = None
         self.mounts = dict()
 
         self.config = dict(
@@ -66,7 +66,7 @@ class Buildah(Target):
                 return
 
         self.ctr = (await self.parent.exec('buildah', 'from', self.base)).out
-        self.mnt = Path((await self.parent.exec('buildah', 'mount', self.ctr)).out)
+        self.root = Path((await self.parent.exec('buildah', 'mount', self.ctr)).out)
         await super().__call__(*actions)
 
     async def images(self):
@@ -96,7 +96,11 @@ class Buildah(Target):
             prefix = self.image_previous.tags[0]
         else:
             prefix = self.base
-        key = prefix + repr(action)
+        if hasattr(action, 'cachehash'):
+            action_key = action.cachehash()
+        else:
+            action_key = str(action)
+        key = prefix + action_key
         sha1 = hashlib.sha1(key.encode('ascii'))
         return self.image.layer(sha1.hexdigest())
 
@@ -109,7 +113,7 @@ class Buildah(Target):
 
     async def clean(self, target):
         for src, dst in self.mounts.items():
-            await self.parent.exec('umount', self.mnt / str(dst)[1:])
+            await self.parent.exec('umount', self.root / str(dst)[1:])
         else:
             return
 
@@ -118,7 +122,7 @@ class Buildah(Target):
             if os.getenv('BUILDAH_PUSH'):
                 await self.image.push(target)
 
-        if self.mnt is not None:
+        if self.root is not None:
             await self.parent.exec('buildah', 'umount', self.ctr)
 
         if self.ctr is not None:
@@ -126,7 +130,7 @@ class Buildah(Target):
 
     async def mount(self, src, dst):
         """Mount a host directory into the container."""
-        target = self.mnt / str(dst)[1:]
+        target = self.root / str(dst)[1:]
         await self.parent.exec(f'mkdir -p {src} {target}')
         await self.parent.exec(f'mount -o bind {src} {target}')
         self.mounts[src] = dst
@@ -163,3 +167,11 @@ class Buildah(Target):
 
         for tag in tags:
             await self.parent.exec('buildah', 'tag', self.sha, tag)
+
+    async def mkdir(self, path):
+        return await self.parent.mkdir(self.root / path)
+
+    async def copy(self, *args):
+        args = list(args)
+        args[-1] = self.path(args[-1])
+        return await self.parent.copy(*args)

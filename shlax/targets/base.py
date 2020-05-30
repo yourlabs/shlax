@@ -1,4 +1,6 @@
 import copy
+from pathlib import Path
+import os
 import re
 
 from ..output import Output
@@ -7,11 +9,12 @@ from ..result import Result, Results
 
 
 class Target:
-    def __init__(self, *actions):
+    def __init__(self, *actions, root=None):
         self.actions = actions
         self.results = []
         self.output = Output()
         self.parent = None
+        self.root = root or os.getcwd()
 
     @property
     def parent(self):
@@ -54,6 +57,8 @@ class Target:
                 # nested call, re-raise
                 raise
             else:
+                import traceback
+                traceback.print_exception(type(e), e, None)
                 return True
         else:
             self.output.success(action)
@@ -114,3 +119,28 @@ class Target:
         if kwargs.get('wait', True):
             await proc.wait()
         return proc
+
+    @property
+    def root(self):
+        return self._root
+
+    @root.setter
+    def root(self, value):
+        self._root = Path(value or os.getcwd())
+
+    def path(self, path):
+        if str(path).startswith('/'):
+            path = str(path)[1:]
+        return self.root / path
+
+    async def mkdir(self, path):
+        return await self.exec('mkdir -p ' + str(path))
+
+    async def copy(self, *args):
+        src = args[:-1]
+        dst = self.path(args[-1])
+        await self.mkdir(dst)
+        return await self.exec(
+            *('cp', '-av') + src,
+            dst
+        )

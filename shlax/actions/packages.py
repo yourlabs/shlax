@@ -161,5 +161,5 @@ class Packages:
     async def pacman_setup(self, target):
         return self.cache_root + '/pacman'
 
-    def __repr__(self):
+    def __str__(self):
         return f'Packages({self.packages}, upgrade={self.upgrade})'
