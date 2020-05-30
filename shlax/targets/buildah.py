@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 import os
 import sys
@@ -11,6 +12,8 @@ from ..proc import Proc
 
 
 class Buildah(Target):
+    """Build container image with buildah"""
+
     def __init__(self,
                  *actions,
                  base=None, commit=None,
@@ -51,50 +54,64 @@ class Buildah(Target):
 
         if actions:
             actions = actions[len(actions_done):]
+            if not actions:
+                self.clean = None
+                self.output.success('Image up to date')
+                return
         else:
             self.actions = self.actions[len(actions_done):]
+            if not self.actions:
+                self.clean = None
+                self.output.success('Image up to date')
+                return
 
         self.ctr = (await self.parent.exec('buildah', 'from', self.base)).out
         self.mnt = Path((await self.parent.exec('buildah', 'mount', self.ctr)).out)
         await super().__call__(*actions)
 
-    async def cache_load(self, *actions):
-        actions_done = []
+    async def images(self):
         result = await self.parent.exec(
             'podman image list --format json',
             quiet=True,
         )
         result = json.loads(result.out)
-        images = [item for sublist in result for item in sublist['History']]
-        self.hash_previous = None
-        for action in actions or self.actions:
-            hasher = getattr(action, 'layerhasher', None)
-            if not hasher:
-                break
-            layerhash = hasher(self.hash_previous)
-            layerimage = copy.deepcopy(self.image)
-            layerimage.tags = [layerhash]
-            if 'localhost/' + str(layerimage) in images:
-                self.base = str(layerimage)
-                self.hash_previous = layerhash
-                actions_done.append(action)
-                self.output.success(f'Found cached layer for {action}')
+        return [item for sublist in result for item in sublist['History']]
 
+    async def cache_load(self, *actions):
+        actions_done = []
+        self.image_previous = Image(self.base)
+        images = await self.images()
+        for action in actions or self.actions:
+            action_image = self.action_image(action)
+            if 'localhost/' + str(action_image) in images:
+                self.base = self.image_previous = action_image
+                actions_done.append(action)
+                self.output.skip(f'Found valid cached layer for {action}')
+            else:
+                break
         return actions_done
+
+    def action_image(self, action):
+        if self.image_previous:
+            prefix = self.image_previous.tags[0]
+        else:
+            prefix = self.base
+        key = prefix + repr(action)
+        sha1 = hashlib.sha1(key.encode('ascii'))
+        return self.image.layer(sha1.hexdigest())
 
     async def action(self, action, reraise=False):
         result = await super().action(action, reraise)
-        hasher = getattr(action, 'layerhasher', None)
-        if hasher:
-            layerhash = hasher(self.hash_previous if self.hash_previous else None)
-            layerimage = copy.deepcopy(self.image)
-            layerimage.tags = [layerhash]
-            await self.commit(layerimage)
+        action_image = self.action_image(action)
+        await self.commit(action_image)
+        self.image_previous = action_image
         return result
 
     async def clean(self, target):
         for src, dst in self.mounts.items():
             await self.parent.exec('umount', self.mnt / str(dst)[1:])
+        else:
+            return
 
         if self.result.status == 'success':
             await self.commit()
