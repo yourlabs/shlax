@@ -1,3 +1,5 @@
+import copy
+import json
 import os
 import sys
 from pathlib import Path
@@ -45,9 +47,50 @@ class Buildah(Target):
             os.execvp('buildah', ['buildah', 'unshare'] + sys.argv)
             # program has been replaced
 
+        actions_done = await self.cache_load(*actions)
+
+        if actions:
+            actions = actions[len(actions_done):]
+        else:
+            self.actions = self.actions[len(actions_done):]
+
         self.ctr = (await self.parent.exec('buildah', 'from', self.base)).out
         self.mnt = Path((await self.parent.exec('buildah', 'mount', self.ctr)).out)
-        await super().__call__()
+        await super().__call__(*actions)
+
+    async def cache_load(self, *actions):
+        actions_done = []
+        result = await self.parent.exec(
+            'podman image list --format json',
+            quiet=True,
+        )
+        result = json.loads(result.out)
+        images = [item for sublist in result for item in sublist['History']]
+        self.hash_previous = None
+        for action in actions or self.actions:
+            hasher = getattr(action, 'layerhasher', None)
+            if not hasher:
+                break
+            layerhash = hasher(self.hash_previous)
+            layerimage = copy.deepcopy(self.image)
+            layerimage.tags = [layerhash]
+            if 'localhost/' + str(layerimage) in images:
+                self.base = str(layerimage)
+                self.hash_previous = layerhash
+                actions_done.append(action)
+                self.output.success(f'Found cached layer for {action}')
+
+        return actions_done
+
+    async def action(self, action, reraise=False):
+        result = await super().action(action, reraise)
+        hasher = getattr(action, 'layerhasher', None)
+        if hasher:
+            layerhash = hasher(self.hash_previous if self.hash_previous else None)
+            layerimage = copy.deepcopy(self.image)
+            layerimage.tags = [layerhash]
+            await self.commit(layerimage)
+        return result
 
     async def clean(self, target):
         for src, dst in self.mounts.items():
@@ -79,25 +122,27 @@ class Buildah(Target):
         _args += [' '.join([str(a) for a in args])]
         return await self.parent.exec(*_args, **kwargs)
 
-    async def commit(self):
-        if not self.image:
+    async def commit(self, image=None):
+        image = image or self.image
+        if not image:
             return
 
-        for key, value in self.config.items():
-            await self.parent.exec(f'buildah config --{key} "{value}" {self.ctr}')
+        if not image:
+            # don't go through that if layer commit
+            for key, value in self.config.items():
+                await self.parent.exec(f'buildah config --{key} "{value}" {self.ctr}')
 
-        self.sha = (await self.exec(
+        self.sha = (await self.parent.exec(
             'buildah',
             'commit',
-            '--format=' + self.image.format,
+            '--format=' + image.format,
             self.ctr,
-            buildah=False,
         )).out
 
-        if self.image.tags:
-            tags = [f'{self.image.repository}:{tag}' for tag in self.image.tags]
+        if image.tags:
+            tags = [f'{image.repository}:{tag}' for tag in image.tags]
         else:
-            tags = [self.image.repository]
+            tags = [image.repository]
 
         for tag in tags:
             await self.parent.exec('buildah', 'tag', self.sha, tag)
