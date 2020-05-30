@@ -30,30 +30,34 @@ class Target:
             self.parent = target
 
         for action in actions or self.actions:
-            result = Result(self, action)
-            self.output.start(action)
-            try:
-                await action(target=self)
-            except Exception as e:
-                self.output.fail(action, e)
-                result.status = 'failure'
-                result.exception = e
-                if actions:
-                    # nested call, re-raise
-                    raise
-                else:
-                    break
-            else:
-                self.output.success(action)
-                result.status = 'success'
-            finally:
-                self.caller.results.append(result)
+            if await self.action(action, reraise=bool(actions)):
+                break
 
-                clean = getattr(action, 'clean', None)
-                if clean:
-                    action.result = result
-                    self.output.clean(action)
-                    await clean(self)
+    async def action(self, action, reraise=False):
+        result = Result(self, action)
+        self.output.start(action)
+        try:
+            await action(target=self)
+        except Exception as e:
+            self.output.fail(action, e)
+            result.status = 'failure'
+            result.exception = e
+            if reraise:
+                # nested call, re-raise
+                raise
+            else:
+                return True
+        else:
+            self.output.success(action)
+            result.status = 'success'
+        finally:
+            self.caller.results.append(result)
+
+            clean = getattr(action, 'clean', None)
+            if clean:
+                action.result = result
+                self.output.clean(action)
+                await clean(self)
 
     async def rexec(self, *args, **kwargs):
         kwargs['user'] = 'root'
