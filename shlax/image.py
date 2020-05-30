@@ -58,10 +58,6 @@ class Image:
         if not self.tags:
             self.tags = ['latest']
 
-    async def __call__(self, action, *args, **kwargs):
-        args = list(args)
-        return await action.exec(*args, **self.kwargs)
-
     def __str__(self):
         return f'{self.repository}:{self.tags[-1]}'
 

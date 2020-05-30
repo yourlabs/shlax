@@ -14,55 +14,67 @@ import os
 import sys
 
 
-class ConsoleScript(cli2.ConsoleScript):
-    def __call__(self):
-        repo = os.path.join(os.path.dirname(__file__), 'repo')
-
-        if len(self.argv) > 1:
-            repofile = os.path.join(repo, sys.argv[1] + '.py')
-            if os.path.isfile(self.argv[1]):
-                self.argv = sys.argv[1:]
-                self.load_shlaxfile(sys.argv[1])
-            elif os.path.isfile(repofile):
-                self.argv = sys.argv[1:]
-                self.load_shlaxfile(repofile)
-            else:
-                raise Exception('File not found ' + sys.argv[1])
-        else:
-            available = glob.glob(os.path.join(repo, '*.py'))
-        return super().__call__()
+class Group(cli2.Group):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cmdclass = Command
 
 
-    def load_shlaxfile(self, path):
-        with open(path) as f:
-            src = f.read()
-        tree = ast.parse(src)
+class Command(cli2.Command):
+    def call(self, *args, **kwargs):
+        return self.shlax_target(self.target)
 
-        members = []
-        for node in tree.body:
-            if not isinstance(node, ast.Assign):
+    def __call__(self, *argv):
+        from shlax.targets.base import Target
+        self.shlax_target = Target()
+        result = super().__call__(*argv)
+        self.shlax_target.output.results(self.shlax_target)
+        return result
+
+
+class ActionCommand(Command):
+    def call(self, *args, **kwargs):
+        self.target = self.target(*args, **kwargs)
+        return super().call(*args, **kwargs)
+
+
+class ConsoleScript(Group):
+    def __call__(self, *argv):
+        self.load_actions()
+        #self.load_shlaxfiles()  # wip
+        return super().__call__(*argv)
+
+    def load_shlaxfiles(self):
+        filesdir = os.path.dirname(__file__) + '/shlaxfiles/'
+        for filename in os.listdir(filesdir):
+            filepath = filesdir + filename
+            if not os.path.isfile(filepath):
                 continue
-            if not isinstance(node.value, ast.Call):
+
+            with open(filepath, 'r') as f:
+                tree = ast.parse(f.read())
+            group = self.group(filename[:-3])
+
+            main = Group(doc=__doc__).load(shlax)
+
+    def load_actions(self):
+        actionsdir = os.path.dirname(__file__) + '/actions/'
+        for filename in os.listdir(actionsdir):
+            filepath = actionsdir + filename
+            if not os.path.isfile(filepath):
                 continue
-            members.append(node.targets[0].id)
+            with open(filepath, 'r') as f:
+                tree = ast.parse(f.read())
+            cls = [
+                node
+                for node in tree.body
+                if isinstance(node, ast.ClassDef)
+            ]
+            if not cls:
+                continue
+            mod = importlib.import_module('shlax.actions.' + filename[:-3])
+            cls = getattr(mod, cls[0].name)
+            self.add(cls, name=filename[:-3], cmdclass=ActionCommand)
 
-        spec = importlib.util.spec_from_file_location('shlaxfile', sys.argv[1])
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        for member in members:
-            subject = getattr(mod, member)
-            if callable(subject):
-                self[member] = cli2.Callable(member, subject)
-            else:
-                importable = cli2.Importable(member, subject)
-                self[member] = cli2.Group(member)
-                for cb in importable.get_callables():
-                    self[member][cb.name] = cb
 
-    def call(self, command):
-        if command.name == 'help':
-            return super().call(command)
-        from shlax.targets.localhost import Localhost
-        asyncio.run(Localhost()(command.target))
-
-cli = ConsoleScript(__doc__)
+cli = ConsoleScript(doc=__doc__)
