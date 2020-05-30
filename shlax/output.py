@@ -1,5 +1,6 @@
 import re
 import sys
+import types
 
 from .colors import colors
 
@@ -28,6 +29,8 @@ class Output:
     def colorized(self, action):
         if hasattr(action, 'colorized'):
             return action.colorized(self.colors)
+        elif isinstance(action, types.MethodType):
+            return f'{action.__self__}.{action.__name__}'
         else:
             return str(action)
 
