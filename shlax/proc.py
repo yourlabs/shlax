@@ -32,21 +32,21 @@ class PrefixStreamProtocol(asyncio.subprocess.SubprocessStreamProtocol):
     make asynchronous output readable.
     """
 
-    def __init__(self, output, *args, **kwargs):
-        self.output = output
+    def __init__(self, proc, *args, **kwargs):
+        self.proc = proc
         super().__init__(*args, **kwargs)
 
     def pipe_data_received(self, fd, data):
-        if self.output.debug is True or 'out' in str(self.output.debug):
+        if self.proc.output.debug is True or 'out' in str(self.proc.output.debug):
             if fd in (1, 2):
-                self.output(data)
+                self.proc.output(data)
         super().pipe_data_received(fd, data)
 
 
-def protocol_factory(output):
+def protocol_factory(proc):
     def _p():
         return PrefixStreamProtocol(
-            output,
+            proc,
             limit=asyncio.streams._DEFAULT_LIMIT,
             loop=asyncio.events.get_event_loop()
         )
@@ -69,8 +69,11 @@ class Proc:
     """
     test = False
 
-    def __init__(self, *args, prefix=None, raises=True, output=None):
-        self.output = output or Output()
+    def __init__(self, *args, prefix=None, raises=True, output=None, quiet=False):
+        if quiet:
+            self.output = Output(debug=False)
+        else:
+            self.output = output or Output()
         self.cmd = ' '.join(args)
         self.args = args
         self.prefix = prefix
@@ -112,7 +115,7 @@ class Proc:
 
         loop = asyncio.events.get_event_loop()
         transport, protocol = await loop.subprocess_exec(
-            protocol_factory(self.output), *self.args)
+            protocol_factory(self), *self.args)
         self.proc = asyncio.subprocess.Process(transport, protocol, loop)
         self.called = True
 
