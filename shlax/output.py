@@ -144,11 +144,21 @@ class Output:
                 '\n',
             ]))
 
+    def info(self, text):
+        if self.debug is True or 'visit' in str(self.debug):
+            self(''.join([
+                self.colors['cyanbold'],
+                '➤   INFO  ',
+                self.colors['reset'],
+                text,
+                '\n',
+            ]))
+
     def skip(self, action):
         if self.debug is True or 'visit' in str(self.debug):
             self(''.join([
                 self.colors['yellowbold'],
-                '↪️ SKIP    ',
+                '↪️   SKIP  ',
                 self.colors['reset'],
                 self.colorized(action),
                 '\n',

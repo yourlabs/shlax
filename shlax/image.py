@@ -74,5 +74,5 @@ class Image:
 
     def layer(self, key):
         layer = copy.deepcopy(self)
-        layer.tags = [key]
+        layer.tags = ['layer-' + key]
         return layer
