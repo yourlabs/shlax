@@ -20,22 +20,35 @@ class Group(cli2.Group):
         self.cmdclass = Command
 
 
+class TargetArgument(cli2.Argument):
+    """DSN of the target to execute on, localhost by default, TBI"""
+
+    def __init__(self, cmd, param, doc=None, color=None, default=None):
+        from shlax.targets.base import Target
+        super().__init__(cmd, param, doc=self.__doc__, default=Target())
+        self.alias = ['target', 't']
+
+
 class Command(cli2.Command):
-    def call(self, *args, **kwargs):
-        return self.shlax_target(self.target)
+    def setargs(self):
+        super().setargs()
+        self['target'] = TargetArgument(
+            self,
+            self.sig.parameters['target'],
+        )
+        if 'actions' in self:
+            del self['actions']
 
     def __call__(self, *argv):
-        from shlax.targets.base import Target
-        self.shlax_target = Target()
-        result = super().__call__(*argv)
-        self.shlax_target.output.results(self.shlax_target)
-        return result
+        super().__call__(*argv)
+        self['target'].value.output.results(self['target'].value)
 
 
-class ActionCommand(Command):
+class ActionCommand(cli2.Command):
     def call(self, *args, **kwargs):
         self.target = self.target(*args, **kwargs)
-        return super().call(*args, **kwargs)
+        from shlax.targets.base import Target
+        return super().call(Target())
 
 
 class ConsoleScript(Group):
