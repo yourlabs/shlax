@@ -141,19 +141,19 @@ class Buildah(Target):
     async def clean(self, target):
         for src, dst in self.mounts.items():
             await self.parent.exec('umount', self.root / str(dst)[1:])
-        else:
-            return
 
         if self.result.status == 'success':
             await self.commit()
-            if os.getenv('BUILDAH_PUSH'):
-                await self.image.push(target)
 
         if self.root is not None:
             await self.parent.exec('buildah', 'umount', self.ctr)
 
         if self.ctr is not None:
             await self.parent.exec('buildah', 'rm', self.ctr)
+
+        if self.result.status == 'success':
+            if os.getenv('BUILDAH_PUSH'):
+                await self.image.push(target)
 
     async def mount(self, src, dst):
         """Mount a host directory into the container."""
