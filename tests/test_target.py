@@ -68,7 +68,7 @@ async def test_parallel():
 @pytest.mark.asyncio
 async def test_function():
     async def hello(target):
-        target.exec('hello')
+        await target.exec('hello')
     await Stub()(hello)
 
 
