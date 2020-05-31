@@ -63,21 +63,16 @@ class Buildah(Target):
         if actions:
             actions = actions[len(keep):]
             if not actions:
-                return self.uptodate()
+                return self.output.success('Image up to date')
         else:
             self.actions = self.actions[len(keep):]
             if not self.actions:
-                return self.uptodate()
+                return self.output.success('Image up to date')
 
         self.ctr = (await self.parent.exec('buildah', 'from', self.base)).out
         self.root = Path((await self.parent.exec('buildah', 'mount', self.ctr)).out)
 
         return await super().__call__(*actions)
-
-    def uptodate(self):
-        self.clean = None
-        self.output.success('Image up to date')
-        return
 
     async def layers(self):
         ret = set()
@@ -144,19 +139,15 @@ class Buildah(Target):
         return stop
 
     async def clean(self, target, result):
-        for src, dst in self.mounts.items():
-            await self.parent.exec('umount', self.root / str(dst)[1:])
-
-        if self.root is not None:
-            await self.parent.exec('buildah', 'umount', self.ctr)
-
         if self.ctr is not None:
-            if result.status == 'success':
-                await self.commit()
-
+            for src, dst in self.mounts.items():
+                await self.parent.exec('umount', self.root / str(dst)[1:])
+            await self.parent.exec('buildah', 'umount', self.ctr)
             await self.parent.exec('buildah', 'rm', self.ctr)
 
-            if result.status == 'success' and os.getenv('BUILDAH_PUSH'):
+        if result.status == 'success':
+            await self.commit()
+            if os.getenv('BUILDAH_PUSH'):
                 await self.image.push(target)
 
     async def mount(self, src, dst):
@@ -184,13 +175,6 @@ class Buildah(Target):
             for key, value in self.config.items():
                 await self.parent.exec(f'buildah config --{key} "{value}" {self.ctr}')
 
-        self.sha = (await self.parent.exec(
-            'buildah',
-            'commit',
-            '--format=' + image.format,
-            self.ctr,
-        )).out
-
         ENV_TAGS = (
             # gitlab
             'CI_COMMIT_SHORT_SHA',
@@ -214,8 +198,7 @@ class Buildah(Target):
         else:
             tags = [image.repository]
 
-        for tag in tags:
-            await self.parent.exec('buildah', 'tag', self.sha, tag)
+        await self.parent.exec('buildah', 'tag', self.image_previous, *tags)
 
     async def mkdir(self, path):
         return await self.parent.mkdir(self.path(path))
