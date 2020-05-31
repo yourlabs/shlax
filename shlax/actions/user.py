@@ -5,6 +5,16 @@ from .packages import Packages
 
 
 class User:
+    """
+    Create a user.
+
+    Example:
+
+        User('app', '/app', getenv('_CONTAINERS_ROOTLESS_UID', 1000)),
+
+    _CONTAINERS_ROOTLESS_UID allows to get your UID during build, which happens
+    in buildah unshare.
+    """
     def __init__(self, username, home, uid):
         self.username = username
         self.home = home

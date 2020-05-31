@@ -105,16 +105,19 @@ class Buildah(Target):
             if name in layers:
                 self.base = self.image_previous = action_image
                 keep.append(action_image)
-                self.output.skip(f'Found valid cached layer for {action}')
+                self.output.skip(
+                    f'Found layer for {action}: {action_image.tags[0]}'
+                )
             else:
                 break
         return keep
 
     async def action_image(self, action):
-        if self.image_previous:
-            prefix = self.image_previous.tags[0]
-        else:
-            prefix = self.base
+        prefix = str(self.image_previous)
+        for tag in self.image_previous.tags:
+            if tag.startswith('layer-'):
+                prefix = tag
+                break
         if hasattr(action, 'cachekey'):
             action_key = action.cachekey()
             if asyncio.iscoroutine(action_key):
@@ -129,6 +132,7 @@ class Buildah(Target):
         stop = await super().action(action, reraise)
         if not stop:
             action_image = await self.action_image(action)
+            self.output.info(f'Commiting {action_image} for {action}')
             await self.parent.exec(
                 'buildah',
                 'commit',
@@ -186,6 +190,24 @@ class Buildah(Target):
             '--format=' + image.format,
             self.ctr,
         )).out
+
+        ENV_TAGS = (
+            # gitlab
+            'CI_COMMIT_SHORT_SHA',
+            'CI_COMMIT_REF_NAME',
+            'CI_COMMIT_TAG',
+            # CircleCI
+            'CIRCLE_SHA1',
+            'CIRCLE_TAG',
+            'CIRCLE_BRANCH',
+            # contributions welcome here
+        )
+
+        # figure tags from CI vars
+        for name in ENV_TAGS:
+            value = os.getenv(name)
+            if value:
+                self.image.tags.append(value)
 
         if image.tags:
             tags = [f'{image.repository}:{tag}' for tag in image.tags]
