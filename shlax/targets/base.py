@@ -2,6 +2,7 @@ import copy
 from pathlib import Path
 import os
 import re
+import sys
 
 from ..output import Output
 from ..proc import Proc
@@ -58,7 +59,7 @@ class Target:
                 raise
             else:
                 import traceback
-                traceback.print_exception(type(e), e, None)
+                traceback.print_exception(type(e), e, sys.exc_info()[2])
                 return True
         else:
             self.output.success(action)
