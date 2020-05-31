@@ -18,6 +18,9 @@ class Target:
         self.parent = None
         self.root = root or os.getcwd()
 
+    def __str__(self):
+        return 'localhost'
+
     @property
     def parent(self):
         return self._parent or Target()
