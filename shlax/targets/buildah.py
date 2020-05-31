@@ -139,7 +139,7 @@ class Buildah(Target):
             self.image_previous = action_image
         return stop
 
-    async def clean(self, target):
+    async def clean(self, target, result):
         for src, dst in self.mounts.items():
             await self.parent.exec('umount', self.root / str(dst)[1:])
 
@@ -147,12 +147,12 @@ class Buildah(Target):
             await self.parent.exec('buildah', 'umount', self.ctr)
 
         if self.ctr is not None:
-            if self.result.status == 'success':
+            if result.status == 'success':
                 await self.commit()
 
             await self.parent.exec('buildah', 'rm', self.ctr)
 
-            if self.result.status == 'success' and os.getenv('BUILDAH_PUSH'):
+            if result.status == 'success' and os.getenv('BUILDAH_PUSH'):
                 await self.image.push(target)
 
     async def mount(self, src, dst):
