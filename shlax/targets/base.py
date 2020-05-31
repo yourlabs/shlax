@@ -66,13 +66,12 @@ class Target:
             self.output.success(action)
             result.status = 'success'
         finally:
-            action.result = result
             self.caller.results.append(result)
 
             clean = getattr(action, 'clean', None)
             if clean:
                 self.output.clean(action)
-                await clean(self)
+                await clean(self, result)
 
     async def rexec(self, *args, **kwargs):
         kwargs['user'] = 'root'
