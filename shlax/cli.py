@@ -31,11 +31,13 @@ class TargetArgument(cli2.Argument):
 
 class Command(cli2.Command):
     def setargs(self):
+        cli2.arg('target', cls=TargetArgument)(self.target)
         super().setargs()
-        self['target'] = TargetArgument(
-            self,
-            self.sig.parameters['target'],
-        )
+        # that works though, so I went for that
+        # self['target'] = TargetArgument(
+        #     self,
+        #     self.sig.parameters['target'],
+        # )
         if 'actions' in self:
             del self['actions']
 
