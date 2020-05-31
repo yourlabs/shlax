@@ -7,8 +7,7 @@ from shlax.shortcuts import *
 
 shlax = Container(
     build=Buildah(
-        Packages('python38', 'buildah', 'unzip', 'findutils'),
-        User('app', '/app', getenv('_CONTAINERS_ROOTLESS_UID')),
+        Packages('python38', 'buildah', 'unzip', 'findutils', upgrade=False),
         Copy('setup.py', 'shlax', '/app'),
         Pip('/app'),
         base='quay.io/podman/stable',
