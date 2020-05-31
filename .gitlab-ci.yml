@@ -1,15 +1,19 @@
 build:
-  cache:
-    key: cache
-    paths: [.cache]
-  image: quay.io/buildah/stable
-  script:
   - dnf install -y curl python38
   - curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
   - python3 get-pip.py
+  script:
   - pip3 install -U --user -e .[cli]
   - CACHE_DIR=$(pwd)/.cache python3 ./shlaxfile.py build
   stage: build
+
+build-itself:
+  cache:
+    key: cache
+    paths: [.cache]
+  image: shlax:$CI_COMMIT_SHORT_SHA
+  script: python3 ./shlaxfile.py build
+  stage: test
 
 test:
   image: yourlabs/python
