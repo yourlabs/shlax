@@ -169,9 +169,7 @@ class Buildah(Target):
             await self.parent.exec('buildah', 'tag', self.sha, tag)
 
     async def mkdir(self, path):
-        return await self.parent.mkdir(self.root / path)
+        return await self.parent.mkdir(self.path(path))
 
     async def copy(self, *args):
-        args = list(args)
-        args[-1] = self.path(args[-1])
-        return await self.parent.copy(*args)
+        return await self.parent.copy(*args[:-1], self.path(args[-1]))

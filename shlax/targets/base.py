@@ -134,13 +134,12 @@ class Target:
         return self.root / path
 
     async def mkdir(self, path):
-        return await self.exec('mkdir -p ' + str(path))
+        if '_mkdir' not in self.__dict__:
+            self._mkdir = []
+        path = str(path)
+        if path not in self._mkdir:
+            await self.exec('mkdir', '-p', path)
+            self._mkdir.append(path)
 
     async def copy(self, *args):
-        src = args[:-1]
-        dst = self.path(args[-1])
-        await self.mkdir(dst)
-        return await self.exec(
-            *('cp', '-av') + src,
-            dst
-        )
+        return await self.exec('cp', '-a', *args)
