@@ -19,7 +19,10 @@ class Pip(Action):
             raise Exception('Could not find pip nor python')
 
         # ensure pip module presence
-        result = await target.exec(python, '-m', 'pip', raises=False)
+        result = await target.exec(
+            python, '-m', 'pip',
+            raises=False, quiet=True
+        )
         if result.rc != 0:
             if not os.path.exists('get-pip.py'):
                 req = request.urlopen(
