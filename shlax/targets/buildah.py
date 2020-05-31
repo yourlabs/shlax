@@ -41,7 +41,7 @@ class Buildah(Target):
     def __str__(self):
         if not self.is_runnable():
             return 'Replacing with: buildah unshare ' + ' '.join(sys.argv)
-        return 'Buildah image builder'
+        return f'Buildah({self.image})'
 
     async def __call__(self, *actions, target=None):
         if target:
