@@ -66,11 +66,11 @@ class Target:
             self.output.success(action)
             result.status = 'success'
         finally:
+            action.result = result
             self.caller.results.append(result)
 
             clean = getattr(action, 'clean', None)
             if clean:
-                action.result = result
                 self.output.clean(action)
                 await clean(self)
 
