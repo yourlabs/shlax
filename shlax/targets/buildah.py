@@ -126,33 +126,33 @@ class Buildah(Target):
         return self.image.layer(sha1.hexdigest())
 
     async def action(self, action, reraise=False):
-        result = await super().action(action, reraise)
-        action_image = await self.action_image(action)
-        await self.parent.exec(
-            'buildah',
-            'commit',
-            '--format=' + action_image.format,
-            self.ctr,
-            action_image,
-        )
-        self.image_previous = action_image
-        return result
+        stop = await super().action(action, reraise)
+        if not stop:
+            action_image = await self.action_image(action)
+            await self.parent.exec(
+                'buildah',
+                'commit',
+                '--format=' + action_image.format,
+                self.ctr,
+                action_image,
+            )
+            self.image_previous = action_image
+        return stop
 
     async def clean(self, target):
         for src, dst in self.mounts.items():
             await self.parent.exec('umount', self.root / str(dst)[1:])
 
-        if self.result.status == 'success':
-            await self.commit()
-
         if self.root is not None:
             await self.parent.exec('buildah', 'umount', self.ctr)
 
         if self.ctr is not None:
+            if self.result.status == 'success':
+                await self.commit()
+
             await self.parent.exec('buildah', 'rm', self.ctr)
 
-        if self.result.status == 'success':
-            if os.getenv('BUILDAH_PUSH'):
+            if self.result.status == 'success' and os.getenv('BUILDAH_PUSH'):
                 await self.image.push(target)
 
     async def mount(self, src, dst):
