@@ -1,3 +1,4 @@
+import asyncio
 import copy
 import hashlib
 import json
@@ -50,54 +51,74 @@ class Buildah(Target):
             os.execvp('buildah', ['buildah', 'unshare'] + sys.argv)
             # program has been replaced
 
-        actions_done = await self.cache_load(*actions)
+        layers = await self.layers()
+        keep = await self.cache_setup(layers, *actions)
+        keepnames = [*map(lambda x: 'localhost/' + str(x), keep)]
+        self.invalidate = [name for name in layers if name not in keepnames]
+        if self.invalidate:
+            self.output.info('Invalidating old layers')
+            await self.parent.exec(
+                'buildah', 'rmi', *self.invalidate, raises=False)
 
         if actions:
-            actions = actions[len(actions_done):]
+            actions = actions[len(keep):]
             if not actions:
-                self.clean = None
-                self.output.success('Image up to date')
-                return
+                return self.uptodate()
         else:
-            self.actions = self.actions[len(actions_done):]
+            self.actions = self.actions[len(keep):]
             if not self.actions:
-                self.clean = None
-                self.output.success('Image up to date')
-                return
+                return self.uptodate()
 
         self.ctr = (await self.parent.exec('buildah', 'from', self.base)).out
         self.root = Path((await self.parent.exec('buildah', 'mount', self.ctr)).out)
-        await super().__call__(*actions)
 
-    async def images(self):
-        result = await self.parent.exec(
-            'podman image list --format json',
+        return await super().__call__(*actions)
+
+    def uptodate(self):
+        self.clean = None
+        self.output.success('Image up to date')
+        return
+
+    async def layers(self):
+        ret = set()
+        results = await self.parent.exec(
+            'buildah images --json',
             quiet=True,
         )
-        result = json.loads(result.out)
-        return [item for sublist in result for item in sublist['History']]
+        results = json.loads(results.out)
 
-    async def cache_load(self, *actions):
-        actions_done = []
+        prefix = 'localhost/' + self.image.repository + ':layer-'
+        for result in results:
+            if not result.get('names', None):
+                continue
+            for name in result['names']:
+                if name.startswith(prefix):
+                    ret.add(name)
+        return ret
+
+    async def cache_setup(self, layers, *actions):
+        keep = []
         self.image_previous = Image(self.base)
-        images = await self.images()
         for action in actions or self.actions:
-            action_image = self.action_image(action)
-            if 'localhost/' + str(action_image) in images:
+            action_image = await self.action_image(action)
+            name = 'localhost/' + str(action_image)
+            if name in layers:
                 self.base = self.image_previous = action_image
-                actions_done.append(action)
+                keep.append(action_image)
                 self.output.skip(f'Found valid cached layer for {action}')
             else:
                 break
-        return actions_done
+        return keep
 
-    def action_image(self, action):
+    async def action_image(self, action):
         if self.image_previous:
             prefix = self.image_previous.tags[0]
         else:
             prefix = self.base
-        if hasattr(action, 'cachehash'):
-            action_key = action.cachehash()
+        if hasattr(action, 'cachekey'):
+            action_key = action.cachekey()
+            if asyncio.iscoroutine(action_key):
+                action_key = str(await action_key)
         else:
             action_key = str(action)
         key = prefix + action_key
@@ -106,8 +127,14 @@ class Buildah(Target):
 
     async def action(self, action, reraise=False):
         result = await super().action(action, reraise)
-        action_image = self.action_image(action)
-        await self.commit(action_image)
+        action_image = await self.action_image(action)
+        await self.parent.exec(
+            'buildah',
+            'commit',
+            '--format=' + action_image.format,
+            self.ctr,
+            action_image,
+        )
         self.image_previous = action_image
         return result
 
