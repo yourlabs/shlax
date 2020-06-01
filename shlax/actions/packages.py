@@ -67,6 +67,9 @@ class Packages:
             return os.path.join(os.getenv('HOME'), '.cache')
 
     async def update(self, target):
+        if not target.islocal:
+            return await target.rexec(self.cmds['update'])
+
         # run pkgmgr_setup functions ie. apk_setup
         cachedir = await getattr(self, self.mgr + '_setup')(target)
 

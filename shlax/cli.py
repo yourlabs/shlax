@@ -28,6 +28,12 @@ class TargetArgument(cli2.Argument):
         super().__init__(cmd, param, doc=self.__doc__, default=Target())
         self.alias = ['target', 't']
 
+    def cast(self, value):
+        from shlax.targets.ssh import Ssh
+        if '@' in value:
+            user, host = value.split('@')
+            return Ssh(host=host, user=user)
+
 
 class Command(cli2.Command):
     def setargs(self):
@@ -45,10 +51,16 @@ class Command(cli2.Command):
 
 
 class ActionCommand(cli2.Command):
+    def setargs(self):
+        super().setargs()
+        self['target'] = TargetArgument(
+            self,
+            inspect.Parameter('target', inspect.Parameter.KEYWORD_ONLY),
+        )
+
     def call(self, *args, **kwargs):
         self.target = self.target(*args, **kwargs)
-        from shlax.targets.base import Target
-        return super().call(Target())
+        return super().call(self['target'].value)
 
 
 class ConsoleScript(Group):

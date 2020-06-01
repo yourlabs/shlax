@@ -17,6 +17,7 @@ class Target:
         self.output = Output()
         self.parent = None
         self.root = root or os.getcwd()
+        self.islocal = getattr(self, 'islocal', True)
 
     def __str__(self):
         return 'localhost'
