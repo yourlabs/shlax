@@ -13,7 +13,8 @@ The stories are in development in this order:
 
 - replacing docker build, that's in the state of polishing
 - replacing docker-compose, not in use but the PoC works so far
-- replacing ansible, also working in working PoC state
+- replacing ansible, also working in working PoC state, the shlax command line
+  demonstrates
 
 This project is supposed to unblock me from adding the CI feature to the
 Sentry/GitLab/Portainer implementation I'm doing in pure python on top of
