@@ -145,7 +145,7 @@ class Buildah(Target):
                 await self.parent.exec('umount', self.root / str(dst)[1:])
             await self.parent.exec('buildah', 'umount', self.ctr)
 
-        if result.status == 'success':
+        if result.status == 'success' and self.ctr:
             await self.commit()
             if os.getenv('BUILDAH_PUSH'):
                 await self.image.push(target)
