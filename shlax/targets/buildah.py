@@ -14,6 +14,7 @@ from ..proc import Proc
 
 class Buildah(Target):
     """Build container image with buildah"""
+    isguest = True
 
     def __init__(self,
                  *actions,
@@ -200,8 +201,8 @@ class Buildah(Target):
 
         await self.parent.exec('buildah', 'tag', self.image_previous, *tags)
 
-    async def mkdir(self, path):
-        return await self.parent.mkdir(self.path(path))
+    async def mkdir(self, *paths):
+        return await self.parent.mkdir(*[self.path(path) for path in paths])
 
     async def copy(self, *args):
         return await self.parent.copy(*args[:-1], self.path(args[-1]))
