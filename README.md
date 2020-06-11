@@ -20,7 +20,8 @@ The stories are in development in this order:
 This project is supposed to unblock me from adding the CI feature to the
 Sentry/GitLab/Portainer implementation I'm doing in pure python on top of
 Django, CRUDLFA+ and Ryzom (isomorphic components in Python to replace
-templates).
+templates). So, as you can see, I'm really deep in it with a strong
+determination.
 
 Shlax builds its container itself, so check the shlaxfile.py of this repository
 to see what it currently looks like, and check the build job of the CI pipeline
