@@ -20,22 +20,51 @@ class Group(cli2.Group):
         self.cmdclass = Command
 
 
+class TargetArgument(cli2.Argument):
+    """DSN of the target to execute on, localhost by default, TBI"""
+
+    def __init__(self, cmd, param, doc=None, color=None, default=None):
+        from shlax.targets.base import Target
+        super().__init__(cmd, param, doc=self.__doc__, default=Target())
+        self.alias = ['target', 't']
+
+    def cast(self, value):
+        from shlax.targets.ssh import Ssh
+        if '@' in value:
+            user, host = value.split('@')
+            return Ssh(host=host, user=user)
+
+
 class Command(cli2.Command):
+    def setargs(self):
+        super().setargs()
+        self['target'] = TargetArgument(
+            self,
+            self.sig.parameters['target'],
+        )
+        if 'actions' in self:
+            del self['actions']
+
     def call(self, *args, **kwargs):
+        self.shlax_target = self['target'].value
         return self.shlax_target(self.target)
 
     def __call__(self, *argv):
-        from shlax.targets.base import Target
-        self.shlax_target = Target()
-        result = super().__call__(*argv)
+        super().__call__(*argv)
         self.shlax_target.output.results(self.shlax_target)
-        return result
 
 
-class ActionCommand(Command):
+class ActionCommand(cli2.Command):
+    def setargs(self):
+        super().setargs()
+        self['target'] = TargetArgument(
+            self,
+            inspect.Parameter('target', inspect.Parameter.KEYWORD_ONLY),
+        )
+
     def call(self, *args, **kwargs):
         self.target = self.target(*args, **kwargs)
-        return super().call(*args, **kwargs)
+        return super().call(self['target'].value)
 
 
 class ConsoleScript(Group):

@@ -11,12 +11,17 @@ from ..result import Result, Results
 
 
 class Target:
+    isguest = False
+
     def __init__(self, *actions, root=None):
         self.actions = actions
         self.results = []
         self.output = Output()
         self.parent = None
-        self.root = root or os.getcwd()
+        self.root = root or ''
+
+    def __str__(self):
+        return 'localhost'
 
     @property
     def parent(self):
@@ -127,20 +132,48 @@ class Target:
 
     @root.setter
     def root(self, value):
-        self._root = Path(value or os.getcwd())
+        self._root = Path(value) if value else ''
+
+    @property
+    def host(self):
+        current = self
+        while current.isguest:
+            current = self.parent
+        return current
 
     def path(self, path):
+        if not self.root:
+            return path
         if str(path).startswith('/'):
             path = str(path)[1:]
-        return self.root / path
+        return str(self.root / path)
 
-    async def mkdir(self, path):
+    async def mkdir(self, *paths):
         if '_mkdir' not in self.__dict__:
             self._mkdir = []
-        path = str(path)
-        if path not in self._mkdir:
-            await self.exec('mkdir', '-p', path)
-            self._mkdir.append(path)
+
+        make = [str(path) for path in paths if str(path) not in self._mkdir]
+        if make:
+            await self.exec('mkdir', '-p', *make)
+            self._mkdir += make
 
     async def copy(self, *args):
         return await self.exec('cp', '-a', *args)
+
+    async def exists(self, path):
+        return (await self.exec('ls ' + self.path(path), raises=False)).rc == 0
+
+    async def read(self, path):
+        return (await self.exec('cat', self.path(path))).out
+
+    async def write(self, path, content):
+        return await self.exec('echo ' + content + ' > ' + self.path(path))
+
+    async def rm(self, path):
+        return await self.exec('rm', self.path(path))
+
+    async def getenv(self, key):
+        return (await self.exec('echo $' + key)).out
+
+    async def getcwd(self):
+        return (await self.exec('pwd')).out

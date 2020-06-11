@@ -14,6 +14,7 @@ from ..proc import Proc
 
 class Buildah(Target):
     """Build container image with buildah"""
+    isguest = True
 
     def __init__(self,
                  *actions,
@@ -63,21 +64,16 @@ class Buildah(Target):
         if actions:
             actions = actions[len(keep):]
             if not actions:
-                return self.uptodate()
+                return self.output.success('Image up to date')
         else:
             self.actions = self.actions[len(keep):]
             if not self.actions:
-                return self.uptodate()
+                return self.output.success('Image up to date')
 
         self.ctr = (await self.parent.exec('buildah', 'from', self.base)).out
         self.root = Path((await self.parent.exec('buildah', 'mount', self.ctr)).out)
 
         return await super().__call__(*actions)
-
-    def uptodate(self):
-        self.clean = None
-        self.output.success('Image up to date')
-        return
 
     async def layers(self):
         ret = set()
@@ -144,20 +140,18 @@ class Buildah(Target):
         return stop
 
     async def clean(self, target, result):
-        for src, dst in self.mounts.items():
-            await self.parent.exec('umount', self.root / str(dst)[1:])
-
-        if self.root is not None:
+        if self.ctr is not None:
+            for src, dst in self.mounts.items():
+                await self.parent.exec('umount', self.root / str(dst)[1:])
             await self.parent.exec('buildah', 'umount', self.ctr)
 
-        if self.ctr is not None:
-            if result.status == 'success':
-                await self.commit()
-
-            await self.parent.exec('buildah', 'rm', self.ctr)
-
-            if result.status == 'success' and os.getenv('BUILDAH_PUSH'):
+        if result.status == 'success':
+            await self.commit()
+            if os.getenv('BUILDAH_PUSH'):
                 await self.image.push(target)
+
+        if self.ctr is not None:
+            await self.parent.exec('buildah', 'rm', self.ctr)
 
     async def mount(self, src, dst):
         """Mount a host directory into the container."""
@@ -174,22 +168,13 @@ class Buildah(Target):
         _args += [' '.join([str(a) for a in args])]
         return await self.parent.exec(*_args, **kwargs)
 
-    async def commit(self, image=None):
-        image = image or self.image
-        if not image:
-            return
+    async def commit(self):
+        for key, value in self.config.items():
+            await self.parent.exec(f'buildah config --{key} "{value}" {self.ctr}')
 
-        if not image:
-            # don't go through that if layer commit
-            for key, value in self.config.items():
-                await self.parent.exec(f'buildah config --{key} "{value}" {self.ctr}')
-
-        self.sha = (await self.parent.exec(
-            'buildah',
-            'commit',
-            '--format=' + image.format,
-            self.ctr,
-        )).out
+        await self.parent.exec(
+            f'buildah commit {self.ctr} {self.image.repository}:final'
+        )
 
         ENV_TAGS = (
             # gitlab
@@ -209,16 +194,15 @@ class Buildah(Target):
             if value:
                 self.image.tags.append(value)
 
-        if image.tags:
-            tags = [f'{image.repository}:{tag}' for tag in image.tags]
+        if self.image.tags:
+            tags = [f'{self.image.repository}:{tag}' for tag in self.image.tags]
         else:
-            tags = [image.repository]
+            tags = [self.image.repository]
 
-        for tag in tags:
-            await self.parent.exec('buildah', 'tag', self.sha, tag)
+        await self.parent.exec('buildah', 'tag', self.image.repository + ':final', *tags)
 
-    async def mkdir(self, path):
-        return await self.parent.mkdir(self.path(path))
+    async def mkdir(self, *paths):
+        return await self.parent.mkdir(*[self.path(path) for path in paths])
 
     async def copy(self, *args):
         return await self.parent.copy(*args[:-1], self.path(args[-1]))

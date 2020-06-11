@@ -37,11 +37,13 @@ class Packages:
             update='pacman -Sy',
             upgrade='pacman -Su --noconfirm',
             install='pacman -S --noconfirm',
+            lastupdate='stat -c %Y /var/lib/pacman/sync/core.db',
         ),
         dnf=dict(
             update='dnf makecache --assumeyes',
             upgrade='dnf upgrade --best --assumeyes --skip-broken',  # noqa
             install='dnf install --setopt=install_weak_deps=False --best --assumeyes',  # noqa
+            lastupdate='stat -c %Y /var/cache/dnf/* | head -n1',
         ),
         yum=dict(
             update='yum update',
@@ -52,54 +54,52 @@ class Packages:
 
     installed = []
 
-    def __init__(self, *packages, upgrade=True):
+    def __init__(self, *packages, upgrade=False):
         self.packages = []
         self.upgrade = upgrade
         for package in packages:
             line = dedent(package).strip().replace('\n', ' ')
             self.packages += line.split(' ')
 
-    @property
-    def cache_root(self):
+    async def cache_setup(self, target):
         if 'CACHE_DIR' in os.environ:
-            return os.path.join(os.getenv('CACHE_DIR'))
+            self.cache_root = os.path.join(os.getenv('CACHE_DIR'))
         else:
-            return os.path.join(os.getenv('HOME'), '.cache')
+            self.cache_root = os.path.join(await target.parent.getenv('HOME'), '.cache')
+
+        # run pkgmgr_setup functions ie. apk_setup
+        await getattr(self, self.mgr + '_setup')(target)
 
     async def update(self, target):
-        # run pkgmgr_setup functions ie. apk_setup
-        cachedir = await getattr(self, self.mgr + '_setup')(target)
-
+        # lastupdate = await target.exec(self.cmds['lastupdate'], raises=False)
+        # lastupdate = int(lastupdate.out) if lastupdate.rc == 0 else None
         lastupdate = None
-        if os.path.exists(cachedir + '/lastupdate'):
-            with open(cachedir + '/lastupdate', 'r') as f:
-                try:
-                    lastupdate = int(f.read().strip())
-                except:
-                    pass
-
-        if not os.path.exists(cachedir):
-            os.makedirs(cachedir)
-
         now = int(datetime.now().strftime('%s'))
-        # cache for a week
+        if not lastupdate or now - lastupdate > 604800:
+            await target.rexec(self.cmds['update'])
+
+        return
+
+        # disabling with the above return call until needed again
+        # might have to rewrite this to not have our own lockfile
+        # or find a better place on the filesystem
+        # also make sure the lockfile is actually needed when running on
+        # targets that don't have isguest=True
         if not lastupdate or now - lastupdate > 604800:
             # crude lockfile implementation, should work against *most*
             # race-conditions ...
             lockfile = cachedir + '/update.lock'
-            if not os.path.exists(lockfile):
-                with open(lockfile, 'w+') as f:
-                    f.write(str(os.getpid()))
+            if not await target.parent.exists(lockfile):
+                await target.parent.write(lockfile, str(os.getpid()))
 
                 try:
                     await target.rexec(self.cmds['update'])
                 finally:
-                    os.unlink(lockfile)
+                    await target.parent.rm(lockfile)
 
-                with open(cachedir + '/lastupdate', 'w+') as f:
-                    f.write(str(now))
+                await target.parent.write(cachedir + '/lastupdate', str(now))
             else:
-                while os.path.exists(lockfile):
+                while await target.parent.exists(lockfile):
                     print(f'{self.target} | Waiting for {lockfile} ...')
                     await asyncio.sleep(1)
 
@@ -116,7 +116,13 @@ class Packages:
             raise Exception('Packages does not yet support this distro')
 
         self.cmds = self.mgrs[self.mgr]
+
+        if target.isguest:
+            # we're going to mount
+            await self.cache_setup(target)
+
         await self.update(target)
+
         if self.upgrade:
             await target.rexec(self.cmds['upgrade'])
 
@@ -147,19 +153,24 @@ class Packages:
         return cachedir
 
     async def apt_setup(self, target):
-        codename = (await self.rexec(
-            f'source {self.mnt}/etc/os-release; echo $VERSION_CODENAME'
+        codename = (await target.rexec(
+            f'source /etc/os-release; echo $VERSION_CODENAME'
         )).out
         cachedir = os.path.join(self.cache_root, self.mgr, codename)
         await self.rexec('rm /etc/apt/apt.conf.d/docker-clean')
         cache_archives = os.path.join(cachedir, 'archives')
-        await self.mount(cache_archives, f'/var/cache/apt/archives')
+        await target.mount(cache_archives, f'/var/cache/apt/archives')
         cache_lists = os.path.join(cachedir, 'lists')
-        await self.mount(cache_lists, f'/var/lib/apt/lists')
+        await target.mount(cache_lists, f'/var/lib/apt/lists')
         return cachedir
 
     async def pacman_setup(self, target):
-        return self.cache_root + '/pacman'
+        cachedir = os.path.join(self.cache_root, self.mgr)
+        await target.mkdir(cachedir + '/cache', cachedir + '/sync')
+        await target.mount(cachedir + '/sync', '/var/lib/pacman/sync')
+        await target.mount(cachedir + '/cache', '/var/cache/pacman')
+        if await target.host.exists('/etc/pacman.d/mirrorlist'):
+            await target.copy('/etc/pacman.d/mirrorlist', '/etc/pacman.d/mirrorlist')
 
     def __str__(self):
         return f'Packages({self.packages}, upgrade={self.upgrade})'
