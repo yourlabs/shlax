@@ -144,12 +144,14 @@ class Buildah(Target):
             for src, dst in self.mounts.items():
                 await self.parent.exec('umount', self.root / str(dst)[1:])
             await self.parent.exec('buildah', 'umount', self.ctr)
-            await self.parent.exec('buildah', 'rm', self.ctr)
 
         if result.status == 'success':
             await self.commit()
             if os.getenv('BUILDAH_PUSH'):
                 await self.image.push(target)
+
+        if self.ctr is not None:
+            await self.parent.exec('buildah', 'rm', self.ctr)
 
     async def mount(self, src, dst):
         """Mount a host directory into the container."""
@@ -166,15 +168,13 @@ class Buildah(Target):
         _args += [' '.join([str(a) for a in args])]
         return await self.parent.exec(*_args, **kwargs)
 
-    async def commit(self, image=None):
-        image = image or self.image
-        if not image:
-            return
+    async def commit(self):
+        for key, value in self.config.items():
+            await self.parent.exec(f'buildah config --{key} "{value}" {self.ctr}')
 
-        if not image:
-            # don't go through that if layer commit
-            for key, value in self.config.items():
-                await self.parent.exec(f'buildah config --{key} "{value}" {self.ctr}')
+        await self.parent.exec(
+            f'buildah commit {self.ctr} {self.image.repository}:final'
+        )
 
         ENV_TAGS = (
             # gitlab
@@ -194,12 +194,12 @@ class Buildah(Target):
             if value:
                 self.image.tags.append(value)
 
-        if image.tags:
-            tags = [f'{image.repository}:{tag}' for tag in image.tags]
+        if self.image.tags:
+            tags = [f'{self.image.repository}:{tag}' for tag in self.image.tags]
         else:
-            tags = [image.repository]
+            tags = [self.image.repository]
 
-        await self.parent.exec('buildah', 'tag', self.image_previous, *tags)
+        await self.parent.exec('buildah', 'tag', self.image.repository + ':final', *tags)
 
     async def mkdir(self, *paths):
         return await self.parent.mkdir(*[self.path(path) for path in paths])
