@@ -21,7 +21,9 @@ class Group(cli2.Group):
 
 
 class TargetArgument(cli2.Argument):
-    """DSN of the target to execute on, localhost by default, TBI"""
+    """
+    Target to execute on: localhost by default, target=@ssh_host for ssh.
+    """
 
     def __init__(self, cmd, param, doc=None, color=None, default=None):
         from shlax.targets.base import Target
