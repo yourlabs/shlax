@@ -6,6 +6,26 @@ purpose of code-reuse made possible by target abstraction.
 
 The pattern resolves around two moving parts: Actions and Targets.
 
+## Development status: Design state
+
+I got the thing to work with an ugly PoC that I basically brute-forced, I'm
+currently rewriting the codebase with a proper design.
+
+The stories are in development in this order:
+
+- replacing docker build, that's in the state of polishing
+- replacing docker-compose, not in use but the PoC works so far
+- replacing ansible, also working in working PoC state
+
+This project is supposed to unblock me from adding the CI feature to the
+Sentry/GitLab/Portainer implementation I'm doing in pure python on top of
+Django, CRUDLFA+ and Ryzom (isomorphic components in Python to replace
+templates).
+
+Shlax builds its container itself, so check the shlaxfile.py of this repository
+to see what it currently looks like, and check the build job of the CI pipeline
+to see the output.
+
 ## Action
 
 An action is a function that takes a target argument, it may execute nested
