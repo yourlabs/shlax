@@ -4,8 +4,6 @@ Shlax is a Python framework for system automation, initially with the purpose
 of replacing docker, docker-compose and ansible with a single tool with the
 purpose of code-reuse made possible by target abstraction.
 
-The pattern resolves around two moving parts: Actions and Targets.
-
 ## Development status: Design state
 
 I got the thing to work with an ugly PoC that I basically brute-forced, I'm
@@ -26,6 +24,10 @@ determination.
 Shlax builds its container itself, so check the shlaxfile.py of this repository
 to see what it currently looks like, and check the build job of the CI pipeline
 to see the output.
+
+# Design
+
+The pattern resolves around two moving parts: Actions and Targets.
 
 ## Action
 
