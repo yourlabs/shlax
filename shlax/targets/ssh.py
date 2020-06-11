@@ -5,7 +5,6 @@ class Ssh(Target):
     def __init__(self, *actions, host, user=None):
         self.host = host
         self.user = user
-        self.islocal = False
         super().__init__(*actions)
 
     async def exec(self, *args, user=None, **kwargs):
