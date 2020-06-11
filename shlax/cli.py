@@ -45,9 +45,13 @@ class Command(cli2.Command):
         if 'actions' in self:
             del self['actions']
 
+    def call(self, *args, **kwargs):
+        self.shlax_target = self['target'].value
+        return self.shlax_target(self.target)
+
     def __call__(self, *argv):
         super().__call__(*argv)
-        self['target'].value.output.results(self['target'].value)
+        self.shlax_target.output.results(self.shlax_target)
 
 
 class ActionCommand(cli2.Command):
