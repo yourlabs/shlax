@@ -9,3 +9,6 @@ class Parallel:
         return await asyncio.gather(*[
             target(action) for action in self.actions
         ])
+
+    def __str__(self):
+        return 'Parallel executor'
