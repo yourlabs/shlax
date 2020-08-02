@@ -84,6 +84,28 @@ class Container:
         """Start the container"""
         await target.exec('podman', 'logs', self.full_name)
 
+    async def exec(self, target, cmd=None):
+        """Execute a command in the container"""
+        cmd = cmd or 'bash'
+        if cmd.endswith('sh'):
+            import os
+            os.execvp(
+                '/usr/bin/podman',
+                [
+                    'podman',
+                    'exec',
+                    '-it',
+                    self.full_name,
+                    cmd,
+                ]
+            )
+        result = await target.exec(
+            'podman',
+            'exec',
+            self.full_name,
+            cmd,
+        )
+
     async def down(self, target):
         """Start the container"""
         await target.exec('podman', 'rm', '-f', self.full_name, raises=False)
