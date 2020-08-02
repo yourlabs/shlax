@@ -169,8 +169,13 @@ class Target:
     async def read(self, path):
         return (await self.exec('cat', self.path(path))).out
 
-    async def write(self, path, content):
-        return await self.exec('echo ' + content + ' > ' + self.path(path))
+    async def write(self, path, content, **kwargs):
+        return await self.exec(
+            f'cat > {self.path(path)} <<EOF\n'
+            + content
+            + '\nEOF',
+            **kwargs
+        )
 
     async def rm(self, path):
         return await self.exec('rm', self.path(path))
