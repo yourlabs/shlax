@@ -185,6 +185,8 @@ class Output:
             ]))
 
     def results(self, action):
+        if len(action.results) < 2:
+            return
         success = 0
         fail = 0
         for result in action.results:
