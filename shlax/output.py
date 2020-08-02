@@ -118,7 +118,7 @@ class Output:
     def test(self, action):
         self(''.join([
             self.colors['purplebold'],
-            '!  TEST   ',
+            '! TEST    ',
             self.colors['reset'],
             self.colorized(action),
             '\n',
@@ -128,7 +128,7 @@ class Output:
         if self.debug:
             self(''.join([
                 self.colors['bluebold'],
-                '+  CLEAN  ',
+                '+ CLEAN   ',
                 self.colors['reset'],
                 self.colorized(action),
                 '\n',
@@ -138,7 +138,7 @@ class Output:
         if self.debug is True or 'visit' in str(self.debug):
             self(''.join([
                 self.colors['orangebold'],
-                '⚠  START  ',
+                '⚠ START   ',
                 self.colors['reset'],
                 self.colorized(action),
                 '\n',
@@ -148,7 +148,7 @@ class Output:
         if self.debug is True or 'visit' in str(self.debug):
             self(''.join([
                 self.colors['cyanbold'],
-                '➤   INFO  ',
+                '➤ INFO    ',
                 self.colors['reset'],
                 text,
                 '\n',
