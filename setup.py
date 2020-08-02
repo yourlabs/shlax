@@ -7,7 +7,7 @@ setup(
     setup_requires='setupmeta',
     extras_require=dict(
         cli=[
-            'cli2>=2.2.2',
+            'cli2>=2.3.0',
         ],
         test=[
             'pytest',

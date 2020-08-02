@@ -1,6 +1,7 @@
 import copy
 import os
 
+from .podman import Podman
 from .image import Image
 
 
@@ -12,6 +13,7 @@ class Container:
             self.image = Image(self.image)
         self.volumes = volumes or {}
         self.env = env or {}
+
         prefix = os.getcwd().split('/')[-1]
         repo = self.image.repository.replace('/', '-')
         if prefix == repo:
@@ -19,8 +21,39 @@ class Container:
         else:
             self.name = '-'.join([prefix, repo])
 
+        self.pod = None
+
+    @property
+    def full_name(self):
+        if self.pod:
+            return '-'.join([self.pod.name, self.name])
+        return self.name
+
     async def up(self, target, *args):
         """Start the container foreground"""
+        podman = Podman(target)
+        if self.pod:
+            pod = None
+            for _ in await podman.pod.ps():
+                if _['Name'] == self.pod.name:
+                    pod = _
+                    break
+            if not pod:
+                await podman.pod.create('--name', self.pod.name)
+            args = list(args) + ['--pod', self.pod.name]
+
+        # skip if already up
+        for result in await podman.ps('-a'):
+            for name in result['Names']:
+                if name == self.full_name:
+                    if result['State'] == 'running':
+                        target.output.info(f'{self.full_name} already running')
+                        return
+                    elif result['State'] == 'exited':
+                        target.output.info(f'{self.full_name} starting')
+                        await target.exec('podman', 'start', self.full_name)
+                        return
+
         cmd = [
             'podman',
             'run',
@@ -34,7 +67,7 @@ class Container:
 
         cmd += [
             '--name',
-            self.name,
+            self.full_name,
             str(self.image),
         ]
         await target.exec(*cmd)
@@ -45,11 +78,15 @@ class Container:
 
     async def stop(self, target):
         """Start the container"""
-        await target.exec('podman', 'stop', self.name)
+        await target.exec('podman', 'stop', self.full_name)
+
+    async def logs(self, target):
+        """Start the container"""
+        await target.exec('podman', 'logs', self.full_name)
 
     async def down(self, target):
         """Start the container"""
-        await target.exec('podman', 'rm', '-f', self.name, raises=False)
+        await target.exec('podman', 'rm', '-f', self.full_name, raises=False)
 
     async def apply(self, target):
         """Start the container"""
