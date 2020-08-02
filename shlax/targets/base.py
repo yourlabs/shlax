@@ -68,7 +68,10 @@ class Target:
                 traceback.print_exception(type(e), e, sys.exc_info()[2])
                 return True
         else:
-            self.output.success(action)
+            if getattr(action, 'skipped', False):
+                self.output.skip(action)
+            else:
+                self.output.success(action)
             result.status = 'success'
         finally:
             self.caller.results.append(result)
