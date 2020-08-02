@@ -24,7 +24,7 @@ class User:
         return f'User({self.username}, {self.home}, {self.uid})'
 
     async def __call__(self, target):
-        result = await target.rexec('id', self.uid)
+        result = await target.rexec('id', self.uid, raises=False)
         if result.rc == 0:
             old = re.match('.*\(([^)]*)\).*', result.out).group(1)
             await target.rexec(
@@ -40,3 +40,5 @@ class User:
                 '-u', self.uid,
                 self.username
             )
+        await target.mkdir(self.home)
+        await target.rexec('chown', self.uid, self.home)
