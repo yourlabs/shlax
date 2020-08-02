@@ -16,20 +16,13 @@ class Buildah(Target):
     """Build container image with buildah"""
     isguest = True
 
-    def __init__(self,
-                 *actions,
-                 base=None, commit=None,
-                 cmd=None):
+    def __init__(self, *actions, base=None, commit=None):
         self.base = base or 'alpine'
         self.image = Image(commit) if commit else None
 
         self.ctr = None
         self.root = None
         self.mounts = dict()
-
-        self.config = dict(
-            cmd=cmd or 'sh',
-        )
 
         # Always consider localhost as parent for now
         self.parent = Target()
@@ -169,9 +162,6 @@ class Buildah(Target):
         return await self.parent.exec(*_args, **kwargs)
 
     async def commit(self):
-        for key, value in self.config.items():
-            await self.parent.exec(f'buildah config --{key} "{value}" {self.ctr}')
-
         await self.parent.exec(
             f'buildah commit {self.ctr} {self.image.repository}:final'
         )
@@ -206,3 +196,44 @@ class Buildah(Target):
 
     async def copy(self, *args):
         return await self.parent.copy(*args[:-1], self.path(args[-1]))
+
+    async def write(self, path, content):
+        return await self.write(path, content)
+
+    async def write(self, path, content, **kwargs):
+        return await self.exec(
+            f'cat > {path} <<EOF\n'
+            + content
+            + '\nEOF',
+            **kwargs
+        )
+
+    class Config:
+        def __init__(self, **config):
+            self.config = config
+
+        async def __call__(self, target):
+            for key, value in self.config.items():
+                await target.parent.exec(
+                    f'buildah config --{key} "{value}" {target.ctr}'
+                )
+
+        def __str__(self):
+            return f'Buildah.Config({self.config})'
+
+    class Env:
+        def __init__(self, **env):
+            self.env = env
+
+        async def __call__(self, target):
+            for key, value in self.env.items():
+                await target.parent.exec(
+                    'buildah',
+                    'config',
+                    '--env',
+                    f'{key}={value}',
+                    target.ctr,
+                )
+
+        def __str__(self):
+            return f'Buildah.Env({self.env})'
