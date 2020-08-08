@@ -49,7 +49,7 @@ class Container:
                     if result['State'] == 'running':
                         target.output.info(f'{self.full_name} already running')
                         return
-                    elif result['State'] == 'exited':
+                    elif result['State'] in ('exited', 'configured'):
                         target.output.info(f'{self.full_name} starting')
                         await target.exec('podman', 'start', self.full_name)
                         return
