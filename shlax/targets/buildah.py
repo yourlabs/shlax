@@ -43,16 +43,15 @@ class Buildah(Target):
 
         if not self.is_runnable():
             os.execvp('buildah', ['buildah', 'unshare'] + sys.argv)
-            # program has been replaced
+            return  # process has been replaced
 
-        layers = await self.layers()
-        keep = await self.cache_setup(layers, *actions)
+        layers = await self.image.layers.ls(self)
+        keep = await self.cache_setup(self.image.layers, *actions)
         keepnames = [*map(lambda x: 'localhost/' + str(x), keep)]
-        self.invalidate = [name for name in layers if name not in keepnames]
+        self.invalidate = [name for name in self.image.layers if name not in keepnames]
         if self.invalidate:
             self.output.info('Invalidating old layers')
-            await self.parent.exec(
-                'buildah', 'rmi', *self.invalidate, raises=False)
+            await self.image.layers.rm(self.parent, self.invalidate)
 
         if actions:
             actions = actions[len(keep):]
@@ -67,23 +66,6 @@ class Buildah(Target):
         self.root = Path((await self.parent.exec('buildah', 'mount', self.ctr)).out)
 
         return await super().__call__(*actions)
-
-    async def layers(self):
-        ret = set()
-        results = await self.parent.exec(
-            'buildah images --json',
-            quiet=True,
-        )
-        results = json.loads(results.out)
-
-        prefix = 'localhost/' + self.image.repository + ':layer-'
-        for result in results:
-            if not result.get('names', None):
-                continue
-            for name in result['names']:
-                if name.startswith(prefix):
-                    ret.add(name)
-        return ret
 
     async def cache_setup(self, layers, *actions):
         keep = []
@@ -115,7 +97,9 @@ class Buildah(Target):
             action_key = str(action)
         key = prefix + action_key
         sha1 = hashlib.sha1(key.encode('ascii'))
-        return self.image.layer(sha1.hexdigest())
+        action_image = copy.deepcopy(self.image)
+        action_image.tags = ['layer-' + sha1.hexdigest()]
+        return action_image
 
     async def action(self, action, reraise=False):
         stop = await super().action(action, reraise)

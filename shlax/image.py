@@ -1,6 +1,35 @@
-import copy
+import json
 import os
 import re
+
+
+class Layers(set):
+    def __init__(self, image):
+        self.image = image
+
+    async def ls(self, target):
+        """Fetch layers from localhost"""
+        ret = set()
+        results = await target.parent.exec(
+            'buildah images --json',
+            quiet=True,
+        )
+        results = json.loads(results.out)
+
+        prefix = 'localhost/' + self.image.repository + ':layer-'
+        for result in results:
+            if not result.get('names', None):
+                continue
+            for name in result['names']:
+                if name.startswith(prefix):
+                    self.add(name)
+        return self
+
+    async def rm(self, target, tags=None):
+        """Drop layers for this image"""
+        if tags is None:
+            tags = [layer for layer in await self.ls(target)]
+        await target.exec('podman', 'rmi', *tags)
 
 
 class Image:
@@ -9,13 +38,15 @@ class Image:
         , re.I
     )
 
-    def __init__(self, arg=None, format=None, backend=None, registry=None, repository=None, tags=None):
+    def __init__(self, arg=None, format=None, backend=None, registry=None,
+                 repository=None, tags=None):
         self.arg = arg
         self.format = format
         self.backend = backend
         self.registry = registry
         self.repository = repository
         self.tags = tags or []
+        self.layers = Layers(self)
 
         match = re.match(self.PATTERN, arg)
         if match:
@@ -53,8 +84,3 @@ class Image:
 
         for tag in self.tags:
             await action.exec('buildah', 'push', f'{self.repository}:{tag}')
-
-    def layer(self, key):
-        layer = copy.deepcopy(self)
-        layer.tags = ['layer-' + key]
-        return layer
