@@ -32,9 +32,11 @@ class TargetArgument(cli2.Argument):
 
     def cast(self, value):
         from shlax.targets.ssh import Ssh
-        if '@' in value:
-            user, host = value.split('@')
-            return Ssh(host=host, user=user)
+        user, host = value.split('@')
+        return Ssh(host=host, user=user)
+
+    def match(self, arg):
+        return arg if isinstance(arg, str) and '@' in arg else None
 
 
 class Command(cli2.Command):
