@@ -12,7 +12,9 @@ class Podman(list):
         return Podman(self.target, *self + [command])
 
     async def __call__(self, *args, **kwargs):
-        cmd = self + list(args) + [f'--{k}={v}' for k, v in kwargs.items()]
+        cmd = self + list(args) + [
+            f'--{k}={v}' for k, v in kwargs.items()
+        ]
         if 'ps' in cmd:
             cmd += ['--format=json']
         return (await self.target.exec(*cmd, quiet=True)).json
