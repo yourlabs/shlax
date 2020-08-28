@@ -52,7 +52,7 @@ class Command(cli2.Command):
 
     def call(self, *args, **kwargs):
         self.shlax_target = self['target'].value
-        return self.shlax_target(self.target)
+        return self.shlax_target(*args)
 
     def __call__(self, *argv):
         super().__call__(*argv)
