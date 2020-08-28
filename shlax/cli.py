@@ -42,10 +42,11 @@ class TargetArgument(cli2.Argument):
 class Command(cli2.Command):
     def setargs(self):
         super().setargs()
-        self['target'] = TargetArgument(
-            self,
-            self.sig.parameters['target'],
-        )
+        if 'target' in self.sig.parameters:
+            self['target'] = TargetArgument(
+                self,
+                self.sig.parameters['target'],
+            )
         if 'actions' in self:
             del self['actions']
 
