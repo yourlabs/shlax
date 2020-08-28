@@ -13,6 +13,8 @@ import importlib
 import os
 import sys
 
+from .proc import ProcFailure
+
 
 class Group(cli2.Group):
     def __init__(self, *args, **kwargs):
@@ -55,7 +57,12 @@ class Command(cli2.Command):
         return self.shlax_target(*args)
 
     def __call__(self, *argv):
-        super().__call__(*argv)
+        try:
+            super().__call__(*argv)
+        except ProcFailure:
+            # just output the failure without TB, as command was already
+            # printed anyway
+            pass
         self.shlax_target.output.results(self.shlax_target)
 
 
