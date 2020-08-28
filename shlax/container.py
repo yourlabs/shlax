@@ -80,8 +80,12 @@ class Container:
         """Start the container"""
         await target.exec('podman', 'stop', self.full_name)
 
+    async def inspect(self, target):
+        """Inspect container"""
+        await target.exec('podman', 'inspect', self.full_name)
+
     async def logs(self, target):
-        """Start the container"""
+        """Show container logs"""
         await target.exec('podman', 'logs', self.full_name)
 
     async def exec(self, target, cmd=None):
