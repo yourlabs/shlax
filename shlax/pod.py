@@ -1,9 +1,11 @@
 import cli2
 import json
 import os
+import sys
 
 from shlax.targets.base import Target
 from shlax.actions.parallel import Parallel
+from shlax.proc import Proc
 
 from .podman import Podman
 
@@ -27,7 +29,7 @@ class Pod:
 
     async def build(self, target, *names):
         """Build container images"""
-        if not Proc.test or os.getuid() == 0:
+        if not (Proc.test or os.getuid() == 0):
             os.execvp('buildah', ['buildah', 'unshare'] + sys.argv)
         else:
             await self._call(target, 'build', *names)
