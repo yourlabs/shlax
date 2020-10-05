@@ -29,7 +29,7 @@ class Layers(set):
         """Drop layers for this image"""
         if tags is None:
             tags = [layer for layer in await self.ls(target)]
-        await target.exec('podman', 'rmi', *tags)
+        await target.exec('podman', 'rmi', *tags, raises=False)
 
 
 class Image:
