@@ -52,18 +52,17 @@ class Command(cli2.Command):
         if 'actions' in self:
             del self['actions']
 
-    def call(self, *args, **kwargs):
-        self.shlax_target = self['target'].value
-        return self.shlax_target(*args)
-
     def __call__(self, *argv):
+        result = None
+
         try:
-            super().__call__(*argv)
+            result = super().__call__(*argv)
         except ProcFailure:
             # just output the failure without TB, as command was already
             # printed anyway
             pass
-        self.shlax_target.output.results(self.shlax_target)
+        self['target'].value.output.results(self['target'].value)
+        return result
 
 
 class ActionCommand(cli2.Command):
