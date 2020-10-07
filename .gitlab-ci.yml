@@ -5,17 +5,17 @@ build:
   image: yourlabs/buildah
   script:
   - pip3 install -U --user -e .[cli]
-  - CACHE_DIR=$(pwd)/.cache python3 ./shlaxfile.py build
+  - CACHE_DIR=$(pwd)/.cache python3 ./shlaxfile.py build push
   stage: build
-# commenting until we have docker again
-# build-itself:
-#   cache:
-#     key: cache
-#     paths: [.cache]
-#   image: shlax:$CI_COMMIT_SHORT_SHA
-#   script: python3 ./shlaxfile.py build
-#   stage: test
-#
+
+build-itself:
+  cache:
+    key: cache
+    paths: [.cache]
+  image: quay.io/yourlabs/shlax:$CI_COMMIT_SHORT_SHA
+  script: python3 ./shlaxfile.py build
+  stage: test
+
 test:
   image: yourlabs/python
   stage: build
