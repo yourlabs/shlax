@@ -47,9 +47,17 @@ class Target:
             # the calling target
             self.parent = target
 
+        result = Result(self, self)
+        result.status = 'success'
+
         for action in actions or self.actions:
             if await self.action(action, reraise=bool(actions)):
+                result.status = 'failure'
                 break
+
+        if getattr(self, 'clean', None):
+            self.output.clean(self)
+            await self.clean(self, result)
 
     async def action(self, action, reraise=False):
         result = Result(self, action)
