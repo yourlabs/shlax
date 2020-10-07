@@ -73,6 +73,37 @@ async def test_function():
 
 
 @pytest.mark.asyncio
+async def test_action_clean():
+    class Example:
+        def __init__(self):
+            self.was_called = False
+        async def clean(self, target, result):
+            self.was_called = True
+        async def __call__(self, target):
+            raise Exception('lol')
+
+    action = Example()
+    target = Stub()
+    with pytest.raises(Exception):
+        await target(action)
+    assert action.was_called
+
+
+@pytest.mark.asyncio
+async def test_target_clean():
+    class Example(Stub):
+        def __init__(self, action):
+            self.was_called = False
+            super().__init__(action)
+        async def clean(self, target, result):
+            self.was_called = True
+
+    target = Example(Error())
+    await target()
+    assert target.was_called
+
+
+@pytest.mark.asyncio
 async def test_method():
     class Example:
         def __init__(self):
