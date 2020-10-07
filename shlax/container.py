@@ -51,7 +51,11 @@ class Container:
                         return
                     elif result['State'] in ('exited', 'configured'):
                         target.output.info(f'{self.full_name} starting')
-                        await target.exec('podman', 'start', self.full_name)
+                        startargs = ['podman', 'start']
+                        if '-d' not in args:
+                            startargs.append('--attach')
+                        startargs.append(self.full_name)
+                        await target.exec(*startargs)
                         return
 
         cmd = [
