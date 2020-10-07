@@ -37,9 +37,11 @@ class Buildah(Target):
             return 'Replacing with: buildah unshare ' + ' '.join(sys.argv)
         return f'Buildah({self.image})'
 
-    async def __call__(self, *actions, target=None):
+    async def __call__(self, *actions, target=None, push: bool=False):
         if target:
             self.parent = target
+
+        self.push = push
 
         if not self.is_runnable():
             os.execvp('buildah', ['buildah', 'unshare'] + sys.argv)
@@ -124,7 +126,7 @@ class Buildah(Target):
 
         if result.status == 'success' and self.ctr:
             await self.commit()
-            if os.getenv('BUILDAH_PUSH'):
+            if self.push:
                 await self.image.push(target)
 
         if self.ctr is not None:

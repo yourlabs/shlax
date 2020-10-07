@@ -74,13 +74,19 @@ class Image:
     def __str__(self):
         return f'{self.repository}:{self.tags[-1]}'
 
-    async def push(self, *args, **kwargs):
-        user = os.getenv('DOCKER_USER')
-        passwd = os.getenv('DOCKER_PASS')
-        action = kwargs.get('action', self)
+    async def push(self, target):
+        user = os.getenv('IMAGES_USER')
+        passwd = os.getenv('IMAGES_PASS')
         if user and passwd:
-            action.output.cmd('buildah login -u ... -p ...' + self.registry)
-            await action.exec('buildah', 'login', '-u', user, '-p', passwd, self.registry or 'docker.io', debug=False)
+            target.output.cmd('buildah login -u ... -p ...' + self.registry)
+            await target.parent.exec(
+                'buildah', 'login', '-u', user, '-p', passwd,
+                self.registry or 'docker.io', debug=False)
 
         for tag in self.tags:
-            await action.exec('buildah', 'push', f'{self.repository}:{tag}')
+            await target.parent.exec(
+                'buildah',
+                'push',
+                self.repository + ':final',
+                f'{self.registry}/{self.repository}:{tag}'
+            )
