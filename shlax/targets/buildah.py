@@ -57,12 +57,8 @@ class Buildah(Target):
 
         if actions:
             actions = actions[len(keep):]
-            if not actions:
-                return self.output.success('Image up to date')
         else:
             self.actions = self.actions[len(keep):]
-            if not self.actions:
-                return self.output.success('Image up to date')
 
         self.ctr = (await self.parent.exec('buildah', 'from', self.base)).out
         self.root = Path((await self.parent.exec('buildah', 'mount', self.ctr)).out)
