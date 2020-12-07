@@ -145,8 +145,19 @@ class Buildah(Target):
 
     async def commit(self):
         await self.parent.exec(
-            f'buildah commit {self.ctr} {self.image.repository}:final'
+            'buildah',
+            'commit',
+            f'--format={self.image.format}',
+            self.ctr,
+            f'{self.image.repository}:final',
         )
+        if self.image.backend == 'docker':
+            await self.parent.exec(
+                'buildah',
+                'push',
+                f'{self.image.repository}:final',
+                f'docker-daemon:{self.image.repository}:latest'
+            )
 
         ENV_TAGS = (
             # gitlab

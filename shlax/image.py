@@ -60,9 +60,11 @@ class Image:
                 setattr(self, k, v)
 
         # docker.io currently has issues with oci format
-        self.format = format or 'oci'
         if self.registry == 'docker.io':
-            self.format = 'docker'
+            self.backend = 'docker'
+
+        if not self.format:
+            self.format = 'docker' if self.backend == 'docker' else 'oci'
 
         # filter out tags which resolved to None
         self.tags = [t for t in self.tags if t]
