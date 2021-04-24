@@ -12,7 +12,7 @@ build-itself:
   cache:
     key: cache
     paths: [.cache]
-  image: quay.io/yourlabs/shlax:$CI_COMMIT_SHORT_SHA
+  image: yourlabs/shlax:$CI_COMMIT_SHORT_SHA
   script: python3 ./shlaxfile.py build
   stage: test
 
