@@ -11,7 +11,7 @@ shlax = Container(
         Copy('setup.py', 'shlax', '/app'),
         Pip('/app'),
         base='quay.io/podman/stable',
-        commit='quay.io/yourlabs/shlax',
+        commit='docker://yourlabs/shlax',
     ),
 )
 
