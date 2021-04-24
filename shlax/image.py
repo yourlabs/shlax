@@ -83,7 +83,7 @@ class Image:
             target.output.cmd('buildah login -u ... -p ...' + self.registry)
             await target.parent.exec(
                 'buildah', 'login', '-u', user, '-p', passwd,
-                self.registry or 'docker.io', debug=False)
+                self.registry or 'docker.io', quiet=True)
 
         for tag in self.tags:
             await target.parent.exec(
