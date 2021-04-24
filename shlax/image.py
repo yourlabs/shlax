@@ -76,7 +76,7 @@ class Image:
     def __str__(self):
         return f'{self.repository}:{self.tags[-1]}'
 
-    async def push(self, target):
+    async def push(self, target, name=None):
         user = os.getenv('IMAGES_USER')
         passwd = os.getenv('IMAGES_PASS')
         if user and passwd:
@@ -90,5 +90,5 @@ class Image:
                 'buildah',
                 'push',
                 self.repository + ':final',
-                f'{self.registry}/{self.repository}:{tag}'
+                name if isinstance(name, str) else f'{self.registry}/{self.repository}:{tag}'
             )

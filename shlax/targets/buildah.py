@@ -37,7 +37,7 @@ class Buildah(Target):
             return 'Replacing with: buildah unshare ' + ' '.join(sys.argv)
         return f'Buildah({self.image})'
 
-    async def __call__(self, *actions, target=None, push: bool=False):
+    async def __call__(self, *actions, target=None, push: str=False):
         if target:
             self.parent = target
 
@@ -122,7 +122,7 @@ class Buildah(Target):
         if result.status == 'success' and self.ctr:
             await self.commit()
             if self.push:
-                await self.image.push(target)
+                await self.image.push(target, self.push)
 
         if self.ctr is not None:
             await self.parent.exec('buildah', 'rm', self.ctr)
