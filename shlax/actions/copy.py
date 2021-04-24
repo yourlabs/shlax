@@ -1,12 +1,19 @@
 import asyncio
 import binascii
+import glob
 import os
 
 
 class Copy:
     def __init__(self, *args):
-        self.src = args[:-1]
         self.dst = args[-1]
+        self.src = []
+
+        for src in args[:-1]:
+            if '*' in src:
+                self.src += glob.glob(src)
+            else:
+                self.src.append(src)
 
     def listfiles(self):
         if getattr(self, '_listfiles', None):
