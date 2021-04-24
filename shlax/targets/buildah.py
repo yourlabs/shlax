@@ -107,7 +107,6 @@ class Buildah(Target):
             await self.parent.exec(
                 'buildah',
                 'commit',
-                '--format=' + action_image.format,
                 self.ctr,
                 action_image,
             )
