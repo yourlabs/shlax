@@ -13,7 +13,7 @@ build-itself:
     key: cache
     paths: [.cache, /var/lib/containers/]
   image: yourlabs/shlax:$CI_COMMIT_SHORT_SHA
-  script: python3 ./shlaxfile.py build
+  script: python3 ./shlaxfile.py build push=docker://docker.io/yourlabs/shlax:$CI_COMMIT_REF
   stage: test
 
 test:
