@@ -101,7 +101,11 @@ class Output:
         )
 
     def highlight(self, line, highlight=True):
-        line = line.decode('utf8') if isinstance(line, bytes) else line
+        try:
+            line = line.decode('utf8') if isinstance(line, bytes) else line
+        except UnicodeDecodeError:
+            highlight = False
+
         if not highlight or (
             '\x1b[' in line
             or '\033[' in line
