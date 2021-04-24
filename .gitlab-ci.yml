@@ -16,6 +16,12 @@ build-itself:
   script: python3 ./shlaxfile.py build push=docker://docker.io/yourlabs/shlax:$CI_COMMIT_REF
   stage: test
 
+test-exitcode:
+  image: yourlabs/shlax:$CI_COMMIT_SHORT_SHA
+  script:
+  - tests/shlaxfail.py build || [ $? -eq 1 ]
+  - tests/shlaxsuccess.py build
+
 test:
   image: yourlabs/python
   stage: build

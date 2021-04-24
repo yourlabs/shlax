@@ -60,13 +60,13 @@ class Command(cli2.Command):
         except ProcFailure:
             # just output the failure without TB, as command was already
             # printed anyway
-            self.exit_code = 1
-        self['target'].value.output.results(self['target'].value)
+            pass
 
-        if result and result.status == 'success':
-            self.exit_code = 0
-        else:
-            self.exit_code = 1
+        if self['target'].value.results:
+            if self['target'].value.results[-1].status == 'failure':
+                self.exit_code = 1
+        self['target'].value.output.results(self['target'].value)
+        return result
 
 
 class ActionCommand(cli2.Command):
