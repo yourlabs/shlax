@@ -9,7 +9,7 @@ shlax = Container(
     build=Buildah(
         Packages('python38', 'buildah', 'unzip', 'findutils', upgrade=False),
         Copy('setup.py', 'shlax', '/app'),
-        Pip('/app'),
+        Pip('/app[cli]'),
         base='quay.io/podman/stable',
         commit='docker://docker.io/yourlabs/shlax',
     ),
