@@ -77,8 +77,8 @@ class Image:
         return f'{self.repository}:{self.tags[-1]}'
 
     async def push(self, target, name=None):
-        user = os.getenv('IMAGES_USER')
-        passwd = os.getenv('IMAGES_PASS')
+        user = os.getenv('IMAGES_USER', os.getenv('DOCKER_USER'))
+        passwd = os.getenv('IMAGES_PASS', os.getenv('DOCKER_PASS'))
         if user and passwd:
             target.output.cmd('buildah login -u ... -p ...' + self.registry)
             await target.parent.exec(
