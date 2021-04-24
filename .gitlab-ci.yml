@@ -1,15 +1,36 @@
 build:
   cache:
     key: cache
-    paths: [.cache]
-  image: yourlabs/shlax
-  script: pip install -U --user -e . && CACHE_DIR=$(pwd)/.cache ./shlaxfile.py -d
-    shlax build push
+    paths: [.cache, /var/lib/containers/]
+  image: yourlabs/buildah
+  script:
+  - pip3 install -U --user .[cli]
+  - CACHE_DIR=$(pwd)/.cache python3 ./shlaxfile.py build push=docker://docker.io/yourlabs/shlax:$CI_COMMIT_SHORT_SHA
   stage: build
+
+build-itself:
+  cache:
+    key: cache
+    paths: [.cache, /var/lib/containers/]
+  image: yourlabs/shlax:$CI_COMMIT_SHORT_SHA
+  script: python3 ./shlaxfile.py build push=docker://docker.io/yourlabs/shlax:$CI_COMMIT_REF
+  stage: test
+
+test-exitcode:
+  image: yourlabs/shlax:$CI_COMMIT_SHORT_SHA
+  script:
+  - tests/shlaxfail.py build || [ $? -eq 1 ]
+  - tests/shlaxsuccess.py build
+
+test:
+  image: yourlabs/python
+  stage: build
+  script:
+  - pip install -U --user -e .[test]
+  - py.test -sv tests
+
 pypi:
   image: yourlabs/python
   only: [tags]
   script: pypi-release
   stage: deploy
-test: {image: yourlabs/python, script: 'pip install -U --user -e .[test] && py.test
-    -svv tests', stage: build}

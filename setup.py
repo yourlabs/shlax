@@ -5,10 +5,9 @@ setup(
     name='shlax',
     versioning='dev',
     setup_requires='setupmeta',
-    install_requires=['cli2'],
     extras_require=dict(
-        full=[
-            'pyyaml',
+        cli=[
+            'cli2>=2.3.0',
         ],
         test=[
             'pytest',
@@ -25,7 +24,7 @@ setup(
     python_requires='>=3',
     entry_points={
         'console_scripts': [
-            'shlax = shlax.cli:cli',
+            'shlax = shlax.cli:cli.entry_point',
         ],
     },
 )

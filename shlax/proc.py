@@ -7,8 +7,23 @@ import os
 import shlex
 import sys
 
-from .exceptions import WrongResult
 from .output import Output
+
+
+class ProcFailure(Exception):
+    def __init__(self, proc):
+        self.proc = proc
+
+        msg = f'FAIL exit with {proc.rc} ' + proc.args[0]
+
+        if not proc.output.debug or 'cmd' not in str(proc.output.debug):
+            msg += '\n' + proc.cmd
+
+        if not proc.output.debug or 'out' not in str(proc.output.debug):
+            msg += '\n' + proc.out
+            msg += '\n' + proc.err
+
+        super().__init__(msg)
 
 
 class PrefixStreamProtocol(asyncio.subprocess.SubprocessStreamProtocol):
@@ -17,21 +32,21 @@ class PrefixStreamProtocol(asyncio.subprocess.SubprocessStreamProtocol):
     make asynchronous output readable.
     """
 
-    def __init__(self, output, *args, **kwargs):
-        self.output = output
+    def __init__(self, proc, *args, **kwargs):
+        self.proc = proc
         super().__init__(*args, **kwargs)
 
     def pipe_data_received(self, fd, data):
-        if self.output.debug is True or 'out' in str(self.output.debug):
+        if self.proc.output.debug is True or 'out' in str(self.proc.output.debug):
             if fd in (1, 2):
-                self.output(data)
+                self.proc.output(data)
         super().pipe_data_received(fd, data)
 
 
-def protocol_factory(output):
+def protocol_factory(proc):
     def _p():
         return PrefixStreamProtocol(
-            output,
+            proc,
             limit=asyncio.streams._DEFAULT_LIMIT,
             loop=asyncio.events.get_event_loop()
         )
@@ -54,9 +69,11 @@ class Proc:
     """
     test = False
 
-    def __init__(self, *args, prefix=None, raises=True, debug=None, output=None):
-        self.debug = debug if not self.test else False
-        self.output = output or Output()
+    def __init__(self, *args, prefix=None, raises=True, output=None, quiet=False):
+        if quiet:
+            self.output = Output(debug=False)
+        else:
+            self.output = output or Output()
         self.cmd = ' '.join(args)
         self.args = args
         self.prefix = prefix
@@ -87,7 +104,7 @@ class Proc:
         if self.called:
             raise Exception('Already called: ' + self.cmd)
 
-        if self.debug is True or 'cmd' in str(self.debug):
+        if 'cmd' in str(self.output.debug):
             self.output.cmd(self.cmd)
 
         if self.test:
@@ -98,7 +115,7 @@ class Proc:
 
         loop = asyncio.events.get_event_loop()
         transport, protocol = await loop.subprocess_exec(
-            protocol_factory(self.output), *self.args)
+            protocol_factory(self), *self.args)
         self.proc = asyncio.subprocess.Process(transport, protocol, loop)
         self.called = True
 
@@ -123,7 +140,7 @@ class Proc:
         if not self.communicated:
             await self.communicate()
         if self.raises and self.proc.returncode:
-            raise WrongResult(self)
+            raise ProcFailure(self)
         return self
 
     @property

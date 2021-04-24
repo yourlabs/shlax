@@ -1,57 +1,72 @@
 from glob import glob
 import os
+from urllib import request
 
 from .base import Action
 
 
 class Pip(Action):
-    def __init__(self, *pip_packages, pip=None, requirements=None):
-        self.requirements = requirements
-        super().__init__(*pip_packages, pip=pip, requirements=requirements)
+    """Pip abstraction layer."""
+    def __init__(self, *pip_packages):
+        self.pip_packages = pip_packages
 
-    async def call(self, *args, **kwargs):
-        pip = self.kwargs.get('pip', None)
-        if not pip:
-            pip = await self.which('pip3', 'pip', 'pip2')
-            if pip:
-                pip = pip[0]
-            else:
-                from .packages import Packages
-                action = self.action(
-                    Packages,
-                    'python3,apk', 'python3-pip,apt',
-                    args=args, kwargs=kwargs
+    async def __call__(self, target):
+        # ensure python presence
+        results = await target.which('python3', 'python')
+        if results:
+            python = results[0]
+        else:
+            raise Exception('Could not find pip nor python')
+
+        # ensure pip module presence
+        result = await target.exec(
+            python, '-m', 'pip',
+            raises=False, quiet=True
+        )
+        if result.rc != 0:
+            if not os.path.exists('get-pip.py'):
+                req = request.urlopen(
+                    'https://bootstrap.pypa.io/get-pip.py'
                 )
-                await action(*args, **kwargs)
-                pip = await self.which('pip3', 'pip', 'pip2')
-                if not pip:
-                    raise Exception('Could not install a pip command')
-                else:
-                    pip = pip[0]
+                content = req.read()
+                with open('get-pip.py', 'wb+') as f:
+                    f.write(content)
 
+            await target.copy('get-pip.py', '.')
+            await target.exec(python, 'get-pip.py')
+
+        # choose a cache directory
         if 'CACHE_DIR' in os.environ:
             cache = os.path.join(os.getenv('CACHE_DIR'), 'pip')
         else:
             cache = os.path.join(os.getenv('HOME'), '.cache', 'pip')
 
-        if getattr(self, 'mount', None):
+        # and mount it
+        if getattr(target, 'mount', None):
             # we are in a target which shares a mount command
-            await self.mount(cache, '/root/.cache/pip')
-        await self.exec(f'{pip} install --upgrade pip')
+            await target.mount(cache, '/root/.cache/pip')
 
-        # https://github.com/pypa/pip/issues/5599
-        if 'pip' not in self.kwargs:
-            pip = 'python3 -m pip'
+        source = []
+        nonsource = []
+        for package in self.pip_packages:
+            if os.path.exists(package):
+                source.append(package)
+            else:
+                nonsource.append(package)
 
-        source = [p for p in self.args if p.startswith('/') or p.startswith('.')]
-        if source:
-            await self.exec(
-                f'{pip} install --upgrade --editable {" ".join(source)}'
+        if nonsource:
+            await target.exec(
+                python, '-m', 'pip',
+                'install', '--upgrade',
+                *nonsource
             )
 
-        nonsource = [p for p in self.args if not p.startswith('/')]
-        if nonsource:
-            await self.exec(f'{pip} install --upgrade {" ".join(nonsource)}')
+        if source:
+            await target.exec(
+                python, '-m', 'pip',
+                'install', '--upgrade', '--editable',
+                *source
+            )
 
-        if self.requirements:
-            await self.exec(f'{pip} install --upgrade -r {self.requirements}')
+    def __str__(self):
+        return f'Pip({", ".join(self.pip_packages)})'

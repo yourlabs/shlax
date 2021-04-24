@@ -1,7 +1,7 @@
 import pytest
 import os
 
-from shlax import Image
+from shlax.image import Image
 
 
 tests = {
@@ -25,9 +25,3 @@ def test_args(arg, expected):
     im = Image(arg)
     for k, v in expected.items():
         assert getattr(im, k) == v
-
-def test_args_env():
-    os.environ['IMAGE_TEST_ARGS_ENV'] = 'foo'
-    Image.ENV_TAGS = ['IMAGE_TEST_ARGS_ENV']
-    im = Image('re/po:x,y')
-    assert im.tags == ['x', 'y', 'foo']

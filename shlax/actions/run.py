@@ -1,18 +1,15 @@
-from ..targets.buildah import Buildah
-from ..targets.docker import Docker
-
-from .base import Action
 
 
-class Run(Action):
-    async def call(self, *args, **kwargs):
-        image = self.kwargs.get('image', None)
-        if not image:
-            return await self.exec(*self.args, **self.kwargs)
-        if isinstance(image, Buildah):
-            breakpoint()
-            result = await self.action(image, *args, **kwargs)
+class Run:
+    def __init__(self, cmd, root=False):
+        self.cmd = cmd
+        self.root = root
 
-        return await Docker(
-            image=image,
-        ).exec(*args, **kwargs)
+    async def __call__(self, target):
+        if self.root:
+            self.proc = await target.rexec(self.cmd)
+        else:
+            self.proc = await target.exec(self.cmd)
+
+    def __str__(self):
+        return f'Run({self.cmd})'

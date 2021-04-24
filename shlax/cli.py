@@ -1,146 +1,124 @@
-'''
-shlax is a micro-framework to orchestrate commands.
-
-  shlax yourfile.py: to list actions you have declared.
-  shlax yourfile.py <action>: to execute a given action
-  #!/usr/bin/env shlax: when making yourfile.py an executable.
-'''
-
+"""
+Shlax executes mostly in 3 ways:
+- Execute actions on targets with the command line
+- With your shlaxfile as first argument: offer defined Actions
+- With the name of a module in shlax.repo: a community maintained shlaxfile
+"""
+import ast
 import asyncio
 import cli2
-import copy
+import glob
 import inspect
+import importlib
 import os
 import sys
 
-from .exceptions import *
-from .shlaxfile import Shlaxfile
-from .targets import Localhost
+from .proc import ProcFailure
 
 
-async def runall(*args, **kwargs):
-    for name, action in cli.shlaxfile.actions.items():
-        await Localhost(action)(*args, **kwargs)
+class Group(cli2.Group):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cmdclass = Command
 
 
-@cli2.option('debug', alias='d', help='Display debug output.')
-async def test(*args, **kwargs):
-    """Run podctl test over a bunch of paths."""
-    report = []
+class TargetArgument(cli2.Argument):
+    """
+    Target to execute on: localhost by default, target=@ssh_host for ssh.
+    """
 
-    for arg in args:
-        candidates = [
-            os.path.join(os.getcwd(), arg, 'pod.py'),
-            os.path.join(os.getcwd(), arg, 'pod_test.py'),
-        ]
-        for candidate in candidates:
-            if not os.path.exists(candidate):
-                continue
-            podfile = Podfile.factory(candidate)
+    def __init__(self, cmd, param, doc=None, color=None, default=None):
+        from shlax.targets.base import Target
+        super().__init__(cmd, param, doc=self.__doc__, default=Target())
+        self.alias = ['target', 't']
 
-            # disable push
-            for name, container in podfile.containers.items():
-                commit = container.visitor('commit')
-                if commit:
-                    commit.push = False
+    def cast(self, value):
+        from shlax.targets.ssh import Ssh
+        user, host = value.split('@')
+        return Ssh(host=host, user=user)
 
-            output.print(
-                '\n\x1b[1;38;5;160;48;5;118m  BUILD START \x1b[0m'
-                + ' ' + podfile.path + '\n'
+    def match(self, arg):
+        return arg if isinstance(arg, str) and '@' in arg else None
+
+
+class Command(cli2.Command):
+    def setargs(self):
+        super().setargs()
+        if 'target' in self.sig.parameters:
+            self['target'] = TargetArgument(
+                self,
+                self.sig.parameters['target'],
             )
+        if 'actions' in self:
+            del self['actions']
 
-            old_exit_code = console_script.exit_code
-            console_script.exit_code = 0
-            try:
-                await podfile.pod.script('build')()
-            except Exception as e:
-                report.append(('build ' + candidate, False))
-                continue
+    def __call__(self, *argv):
+        result = None
 
-            if console_script.exit_code != 0:
-                report.append(('build ' + candidate, False))
-                continue
-            console_script.exit_code = old_exit_code
-
-            for name, test in podfile.tests.items():
-                name = '::'.join([podfile.path, name])
-                output.print(
-                    '\n\x1b[1;38;5;160;48;5;118m   TEST START \x1b[0m'
-                    + ' ' + name + '\n'
-                )
-
-                try:
-                    await test(podfile.pod)
-                except Exception as e:
-                    report.append((name, False))
-                    output.print('\x1b[1;38;5;15;48;5;196m    TEST FAIL \x1b[0m' + name)
-                else:
-                    report.append((name, True))
-                    output.print('\x1b[1;38;5;200;48;5;44m TEST SUCCESS \x1b[0m' + name)
-                output.print('\n')
-
-    print('\n')
-
-    for name, success in report:
-        if success:
-            output.print('\n\x1b[1;38;5;200;48;5;44m TEST SUCCESS \x1b[0m' + name)
-        else:
-            output.print('\n\x1b[1;38;5;15;48;5;196m    TEST FAIL \x1b[0m' + name)
-
-    print('\n')
-
-    success = [*filter(lambda i: i[1], report)]
-    failures = [*filter(lambda i: not i[1], report)]
-
-    output.print(
-        '\n\x1b[1;38;5;200;48;5;44m TEST TOTAL: \x1b[0m'
-        + str(len(report))
-    )
-    if success:
-        output.print(
-            '\n\x1b[1;38;5;200;48;5;44m TEST SUCCESS: \x1b[0m'
-            + str(len(success))
-        )
-    if failures:
-        output.print(
-            '\n\x1b[1;38;5;15;48;5;196m    TEST FAIL: \x1b[0m'
-            + str(len(failures))
-        )
-
-    if failures:
-        console_script.exit_code = 1
-
-
-class ConsoleScript(cli2.ConsoleScript):
-    def __call__(self, *args, **kwargs):
-        self.shlaxfile = None
-        shlaxfile = sys.argv.pop(1) if len(sys.argv) > 1 else ''
-        if os.path.exists(shlaxfile.split('::')[0]):
-            self.shlaxfile = Shlaxfile()
-            self.shlaxfile.parse(shlaxfile)
-            for name, action in self.shlaxfile.actions.items():
-                self[name] = cli2.Callable(
-                    name,
-                    action.callable(),
-                    options={
-                        k: cli2.Option(name=k, **v)
-                        for k, v in action.options.items()
-                    },
-                    color=getattr(action, 'color', cli2.YELLOW),
-                )
-        return super().__call__(*args, **kwargs)
-
-    def call(self, command):
-        kwargs = copy.copy(self.parser.funckwargs)
-        kwargs.update(self.parser.options)
         try:
-            return command(*self.parser.funcargs, **kwargs)
-        except WrongResult as e:
-            print(e)
-            self.exit_code = e.proc.rc
-        except ShlaxException as e:
-            print(e)
-            self.exit_code = 1
+            result = super().__call__(*argv)
+        except ProcFailure:
+            # just output the failure without TB, as command was already
+            # printed anyway
+            pass
+
+        if self['target'].value.results:
+            if self['target'].value.results[-1].status == 'failure':
+                self.exit_code = 1
+        self['target'].value.output.results(self['target'].value)
+        return result
 
 
-cli = ConsoleScript(__doc__).add_module('shlax.cli')
+class ActionCommand(cli2.Command):
+    def setargs(self):
+        super().setargs()
+        self['target'] = TargetArgument(
+            self,
+            inspect.Parameter('target', inspect.Parameter.KEYWORD_ONLY),
+        )
+
+    def call(self, *args, **kwargs):
+        self.target = self.target(*args, **kwargs)
+        return super().call(self['target'].value)
+
+
+class ConsoleScript(Group):
+    def __call__(self, *argv):
+        self.load_actions()
+        #self.load_shlaxfiles()  # wip
+        return super().__call__(*argv)
+
+    def load_shlaxfiles(self):
+        filesdir = os.path.dirname(__file__) + '/shlaxfiles/'
+        for filename in os.listdir(filesdir):
+            filepath = filesdir + filename
+            if not os.path.isfile(filepath):
+                continue
+
+            with open(filepath, 'r') as f:
+                tree = ast.parse(f.read())
+            group = self.group(filename[:-3])
+
+            main = Group(doc=__doc__).load(shlax)
+
+    def load_actions(self):
+        actionsdir = os.path.dirname(__file__) + '/actions/'
+        for filename in os.listdir(actionsdir):
+            filepath = actionsdir + filename
+            if not os.path.isfile(filepath):
+                continue
+            with open(filepath, 'r') as f:
+                tree = ast.parse(f.read())
+            cls = [
+                node
+                for node in tree.body
+                if isinstance(node, ast.ClassDef)
+            ]
+            if not cls:
+                continue
+            mod = importlib.import_module('shlax.actions.' + filename[:-3])
+            cls = getattr(mod, cls[0].name)
+            self.add(cls, name=filename[:-3], cmdclass=ActionCommand)
+
+
+cli = ConsoleScript(doc=__doc__)

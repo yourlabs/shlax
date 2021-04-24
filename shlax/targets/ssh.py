@@ -1,17 +1,15 @@
-import os
-
-from shlax.proc import Proc
-
-from .localhost import Localhost
+from .base import Target
 
 
-class Ssh(Localhost):
-    root = '/'
-
-    def __init__(self, host, *args, **kwargs):
+class Ssh(Target):
+    def __init__(self, *actions, host, user=None):
         self.host = host
-        super().__init__(*args, **kwargs)
+        self.user = user
+        super().__init__(*actions)
 
-    def shargs(self, *args, **kwargs):
-        args, kwargs = super().shargs(*args, **kwargs)
-        return (['ssh', self.host] + list(args)), kwargs
+    async def exec(self, *args, user=None, **kwargs):
+        _args = ['ssh', self.host]
+        if user == 'root':
+            _args += ['sudo']
+        _args += [' '.join([str(a) for a in args])]
+        return await self.parent.exec(*_args, **kwargs)
