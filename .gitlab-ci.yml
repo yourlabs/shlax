@@ -1,7 +1,7 @@
 build:
   cache:
     key: cache
-    paths: [.cache, .local/share/containers/]
+    paths: [.cache, /var/lib/containers/]
   image: yourlabs/buildah
   script:
   - pip3 install -U --user -e .[cli]
@@ -11,7 +11,7 @@ build:
 build-itself:
   cache:
     key: cache
-    paths: [.cache, .local/share/containers/]
+    paths: [.cache, /var/lib/containers/]
   image: yourlabs/shlax:$CI_COMMIT_SHORT_SHA
   script: python3 ./shlaxfile.py build
   stage: test
