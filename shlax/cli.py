@@ -13,7 +13,7 @@ import importlib
 import os
 import sys
 
-from .proc import ProcFailure
+from .exceptions import ShlaxException
 
 
 class Group(cli2.Group):
@@ -57,10 +57,11 @@ class Command(cli2.Command):
 
         try:
             result = super().__call__(*argv)
-        except ProcFailure:
+        except ShlaxException as exc:
             # just output the failure without TB, as command was already
             # printed anyway
-            pass
+            self.exit_code = 1
+            self['target'].value.output.fail(exc)
 
         if self['target'].value.results:
             if self['target'].value.results[-1].status == 'failure':

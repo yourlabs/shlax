@@ -88,7 +88,7 @@ class Buildah(Target):
                 prefix = tag
                 break
         if hasattr(action, 'cachekey'):
-            action_key = action.cachekey()
+            action_key = action.cachekey(self)
             if asyncio.iscoroutine(action_key):
                 action_key = str(await action_key)
         else:

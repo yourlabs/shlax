@@ -7,10 +7,11 @@ import os
 import shlex
 import sys
 
+from .exceptions import ShlaxException
 from .output import Output
 
 
-class ProcFailure(Exception):
+class ProcFailure(ShlaxException):
     def __init__(self, proc):
         self.proc = proc
 

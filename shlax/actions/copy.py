@@ -3,6 +3,8 @@ import binascii
 import glob
 import os
 
+from ..exceptions import ShlaxException
+
 
 class Copy:
     def __init__(self, *args):
@@ -15,12 +17,16 @@ class Copy:
             else:
                 self.src.append(src)
 
-    def listfiles(self):
+    async def listfiles(self, target):
         if getattr(self, '_listfiles', None):
             return self._listfiles
 
         result = []
         for src in self.src:
+            if not await target.parent.exists(src):
+                target.output.fail(self)
+                raise ShlaxException(f'File not found {src}')
+
             if os.path.isfile(src):
                 result.append(src)
                 continue
@@ -39,7 +45,7 @@ class Copy:
     async def __call__(self, target):
         await target.mkdir(self.dst)
 
-        for path in self.listfiles():
+        for path in await self.listfiles(target):
             if os.path.isdir(path):
                 await target.mkdir(os.path.join(self.dst, path))
             elif '/' in path:
@@ -55,9 +61,11 @@ class Copy:
     def __str__(self):
         return f'Copy({", ".join(self.src)}, {self.dst})'
 
-    async def cachekey(self):
+    async def cachekey(self, target):
         async def chksum(path):
             with open(path, 'rb') as f:
                 return (path, str(binascii.crc32(f.read())))
-        results = await asyncio.gather(*[chksum(f) for f in self.listfiles()])
+        results = await asyncio.gather(
+            *[chksum(f) for f in await self.listfiles(target)]
+        )
         return {path: chks for path, chks in results}
