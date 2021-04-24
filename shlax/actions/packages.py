@@ -27,28 +27,33 @@ class Packages:
             update='apk update',
             upgrade='apk upgrade',
             install='apk add',
+            host=None,
         ),
         apt=dict(
             update='apt-get -y update',
             upgrade='apt-get -y upgrade',
             install='apt-get -y --no-install-recommends install',
+            host=None,
         ),
         pacman=dict(
             update='pacman -Sy',
             upgrade='pacman -Su --noconfirm',
             install='pacman -S --noconfirm',
             lastupdate='stat -c %Y /var/lib/pacman/sync/core.db',
+            host='/var/lib/pacman',
         ),
         dnf=dict(
             update='dnf makecache --assumeyes',
             upgrade='dnf upgrade --best --assumeyes --skip-broken',  # noqa
             install='dnf install --setopt=install_weak_deps=False --best --assumeyes',  # noqa
             lastupdate='stat -c %Y /var/cache/dnf/* | head -n1',
+            host=None,
         ),
         yum=dict(
             update='yum update',
             upgrade='yum upgrade',
             install='yum install',
+            host=None,
         ),
     )
 
@@ -62,6 +67,12 @@ class Packages:
             self.packages += line.split(' ')
 
     async def cache_setup(self, target):
+        # Try to use the host cache directory if present rather than home
+        # directory, in cases where host and guest are the same distros
+        hostpath = self.mgrs[self.mgr]['host']
+        if target.exists(hostpath):
+            self.cache_root = hostpath
+
         if 'CACHE_DIR' in os.environ:
             self.cache_root = os.path.join(os.getenv('CACHE_DIR'))
         else:
