@@ -6,7 +6,7 @@ import re
 import sys
 
 from ..output import Output
-from ..proc import Proc
+from ..proc import Proc, ProcFailure
 from ..result import Result, Results
 
 
@@ -68,13 +68,19 @@ class Target:
             self.output.fail(action, e)
             result.status = 'failure'
             result.exception = e
-            if reraise:
-                # nested call, re-raise
-                raise
-            else:
-                import traceback
-                traceback.print_exception(type(e), e, sys.exc_info()[2])
-                return True
+
+            if not isinstance(e, ProcFailure):
+                # no need to reraise in case of command error
+                # because the command has been printed
+
+                if reraise:
+                    # nested call, re-raise
+                    raise
+                else:
+                    import traceback
+                    traceback.print_exception(type(e), e, sys.exc_info()[2])
+
+            return True  # because it failed
         else:
             if getattr(action, 'skipped', False):
                 self.output.skip(action)
