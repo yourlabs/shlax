@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import re
+import shlex
 import sys
 
 from .colors import colors
@@ -54,7 +55,6 @@ class Subprocess:
         if len(args) == 1 and ' ' in args[0]:
             args = ['sh', '-euc', args[0]]
 
-        self.cmd = ' '.join(args)
         self.args = args
         self.quiet = quiet if quiet is not None else False
         self.prefix = prefix
@@ -75,6 +75,18 @@ class Subprocess:
                 self.regexps[search] = replace
 
     async def start(self, wait=True):
+        if not self.quiet:
+            self.output(
+                self.colors.bgray.encode()
+                + b'+ '
+                + shlex.join([
+                    arg.replace('\n', '\\n')
+                    for arg in self.args
+                ]).encode()
+                + self.colors.reset.encode(),
+                highlight=False
+            )
+
         # Get a reference to the event loop as we plan to use
         # low-level APIs.
         loop = asyncio.get_running_loop()

@@ -16,6 +16,13 @@ subprocesses at the same time. The purpose of this library is to:
 
 This code was copy/pasted between projects and finally extracted on its own.
 
+Demo
+====
+
+.. image:: https://yourlabs.io/oss/shlax/-/raw/master/demo.png
+
+You will find the demo script in demo.py in this repository.
+
 Usage
 =====
 
@@ -96,8 +103,9 @@ will be applied line by line:
 Where is the rest?
 ==================
 
-Shlax used to be the name of a much more ambitious poc-project that has been
-extracted in two projects with clear boundaries, namely `sysplan
+Shlax used to be the name of a much more ambitious poc-project, that you can
+still find in the ``OLD`` branch of this repository. It has been extracted in
+two projects with clear boundaries, namely `sysplan
 <https://yourlabs.io/oss/sysplan>`_ and `podplan
-<https://yourlabs.io/oss/podplan>`_ which are still in alpha state, but Shlax
-as it is feature complete and stable.
+<https://yourlabs.io/oss/podplan>`_ which are still in alpha state, although
+Shlax as it is feature complete and stable.

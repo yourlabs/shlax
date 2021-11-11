@@ -37,12 +37,10 @@ async def test_wait_unbound():
 async def test_rc_1():
     proc = await Proc(
         'NON EXISTING COMMAND',
-        write=Mock(),
+        quiet=True,
     ).wait()
     assert proc.rc != 0
-    proc.write.assert_called_once_with(
-        b'sh: line 1: NON: command not found\x1b[0m\n'
-    )
+    assert proc.err == 'sh: line 1: NON: command not found'
 
 
 @pytest.mark.asyncio
@@ -74,7 +72,27 @@ async def test_prefix():
             Proc.prefix_colors[0].encode()
             + b'test_prefix '
             + Proc.colors.reset.encode()
+            + b'| '
+            + Proc.colors.bgray.encode()
+            + b'+ sh -euc \'echo hi\''
+            + Proc.colors.reset.encode()
+            + b'\n'
+        ),
+        call(
+            Proc.prefix_colors[0].encode()
+            + b'test_prefix '
+            + Proc.colors.reset.encode()
             + b'| hi'
+            + Proc.colors.reset.encode()
+            + b'\n'
+        ),
+        call(
+            Proc.prefix_colors[1].encode()
+            + b'test_prefix_1 '
+            + Proc.colors.reset.encode()
+            + b'| '
+            + Proc.colors.bgray.encode()
+            + b'+ sh -euc \'echo hi\''
             + Proc.colors.reset.encode()
             + b'\n'
         ),
@@ -84,6 +102,17 @@ async def test_prefix():
             + b'test_prefix_1 '
             + Proc.colors.reset.encode()
             + b'| hi'
+            + Proc.colors.reset.encode()
+            + b'\n'
+        ),
+        call(
+            Proc.prefix_colors[0].encode()
+            # padding has been added because of output1
+            + b'  test_prefix '
+            + Proc.colors.reset.encode()
+            + b'| '
+            + Proc.colors.bgray.encode()
+            + b'+ sh -euc \'echo hi\''
             + Proc.colors.reset.encode()
             + b'\n'
         ),
@@ -108,6 +137,16 @@ async def test_prefix_multiline():
         prefix='test_prefix',
     ).wait()
     assert proc.write.mock_calls == [
+        call(
+            Proc.prefix_colors[0].encode()
+            + b'test_prefix '
+            + Proc.colors.reset.encode()
+            + b'| '
+            + Proc.colors.bgray.encode()
+            + b'+ sh -euc \'echo -e "a\\nb"\''
+            + Proc.colors.reset.encode()
+            + b'\n'
+        ),
         call(
             Proc.prefix_colors[0].encode()
             + b'test_prefix '
@@ -140,7 +179,7 @@ async def test_highlight():
             r'h([\w\d-]+)': 'h{cyan}\\1',
         }
     ).wait()
-    proc.write.assert_called_once_with(b'h\x1b[38;5;51mi\x1b[0m\n')
+    proc.write.assert_called_with(b'h\x1b[38;5;51mi\x1b[0m\n')
 
 
 @pytest.mark.asyncio
@@ -155,4 +194,4 @@ async def test_highlight_if_not_colored():
             r'h([\w\d-]+)': 'h{cyan}\\1',
         }
     ).wait()
-    proc.write.assert_called_once_with(b'h\x1b[31mi\n')
+    proc.write.assert_called_with(b'h\x1b[31mi\n')
