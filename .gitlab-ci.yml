@@ -1,0 +1,20 @@
+image: yourlabs/python-arch
+
+qa:
+  stage: test
+  script: flake8
+
+pytest:
+  stage: test
+  script:
+  - pip install --user -e .
+  - pytest -vv --cov shlax --cov-report=xml:coverage.xml --junitxml=report.xml --cov-report=term-missing --strict tests
+  - CI_PROJECT_PATH=yourlabs/shlax CI_BUILD_REPO=https://github.com/yourlabs/cli2 codecov-bash -f coverage.xml
+  artifacts:
+    reports:
+      junit: report.xml
+
+pypi:
+  stage: deploy
+  script: pypi-release
+  only: [tags]
