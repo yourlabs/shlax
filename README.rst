@@ -7,8 +7,7 @@ Why?
 In Python we now have async subprocesses which allows to execute several
 subprocesses at the same time. The purpose of this library is to:
 
-- provide an acceptable asyncio subprocess wrapper for my syntaxic taste,
-- can stream stderr and stdout in real time while capturing it,
+- stream stderr and stdout in real time while capturing it,
 - real time output must be prefixed for when you execute several commands at
   the time so that you know which line is for which process, like with
   docker-compose logs,
@@ -108,4 +107,4 @@ still find in the ``OLD`` branch of this repository. It has been extracted in
 two projects with clear boundaries, namely `sysplan
 <https://yourlabs.io/oss/sysplan>`_ and `podplan
 <https://yourlabs.io/oss/podplan>`_ which are still in alpha state, although
-Shlax as it is feature complete and stable.
+Shlax as it now, is feature complete and stable.
