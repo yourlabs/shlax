@@ -8,7 +8,6 @@ from shlax import Proc
 @pytest.mark.parametrize(
     'args',
     (
-        ['sh', '-c', 'echo hi'],
         ['echo hi'],
         ['sh -c "echo hi"'],
     )
@@ -195,3 +194,23 @@ async def test_highlight_if_not_colored():
         }
     ).wait()
     proc.write.assert_called_with(b'h\x1b[31mi\n')
+
+
+@pytest.mark.asyncio
+async def test_expect():
+    proc = Proc(
+        'echo "x?"; read x; echo x=$x; echo "z?"; read z; echo z=$z',
+        expects=[
+            dict(
+                regexp=b'x?',
+                sendline=b'y\n',
+            ),
+            dict(
+                regexp=b'z?',
+                sendline=b'w\n',
+            )
+        ],
+        quiet=True,
+    )
+    await proc.wait()
+    assert proc.out == 'x?\nx=y\nz?\nz=w'
