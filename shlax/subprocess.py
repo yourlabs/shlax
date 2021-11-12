@@ -52,9 +52,6 @@ class Subprocess:
         write=None,
         flush=None,
     ):
-        if len(args) == 1 and ' ' in args[0]:
-            args = ['sh', '-euc', args[0]]
-
         self.args = args
         self.quiet = quiet if quiet is not None else False
         self.prefix = prefix
@@ -79,7 +76,7 @@ class Subprocess:
             self.output(
                 self.colors.bgray.encode()
                 + b'+ '
-                + shlex.join([
+                + ' '.join([
                     arg.replace('\n', '\\n')
                     for arg in self.args
                 ]).encode()
@@ -93,13 +90,19 @@ class Subprocess:
 
         self.exit_future = asyncio.Future(loop=loop)
 
+        if len(self.args) == 1 and ' ' in self.args[0]:
+            args = ['sh', '-euc', self.args[0]]
+        else:
+            args = self.args
+
         # Create the subprocess controlled by DateProtocol;
         # redirect the standard output into a pipe.
         self.transport, self.protocol = await loop.subprocess_exec(
             lambda: SubprocessProtocol(self),
-            *self.args,
+            *args,
             stdin=None,
         )
+
         self.started = True
 
     async def wait(self, *args, **kwargs):

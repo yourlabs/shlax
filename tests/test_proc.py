@@ -74,7 +74,7 @@ async def test_prefix():
             + Proc.colors.reset.encode()
             + b'| '
             + Proc.colors.bgray.encode()
-            + b'+ sh -euc \'echo hi\''
+            + b'+ echo hi'
             + Proc.colors.reset.encode()
             + b'\n'
         ),
@@ -92,7 +92,7 @@ async def test_prefix():
             + Proc.colors.reset.encode()
             + b'| '
             + Proc.colors.bgray.encode()
-            + b'+ sh -euc \'echo hi\''
+            + b'+ echo hi'
             + Proc.colors.reset.encode()
             + b'\n'
         ),
@@ -112,7 +112,7 @@ async def test_prefix():
             + Proc.colors.reset.encode()
             + b'| '
             + Proc.colors.bgray.encode()
-            + b'+ sh -euc \'echo hi\''
+            + b'+ echo hi'
             + Proc.colors.reset.encode()
             + b'\n'
         ),
@@ -143,7 +143,7 @@ async def test_prefix_multiline():
             + Proc.colors.reset.encode()
             + b'| '
             + Proc.colors.bgray.encode()
-            + b'+ sh -euc \'echo -e "a\\nb"\''
+            + b'+ echo -e "a\\nb"'
             + Proc.colors.reset.encode()
             + b'\n'
         ),
