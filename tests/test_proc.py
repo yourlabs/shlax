@@ -36,7 +36,7 @@ async def test_wait_unbound():
 @pytest.mark.asyncio
 async def test_rc_1():
     proc = await Proc(
-        'NON EXISTING COMMAND',
+        'sh', '-euc', 'NON EXISTING COMMAND',
         quiet=True,
     ).wait()
     assert proc.rc != 0
@@ -50,24 +50,24 @@ async def test_prefix():
     """
     Proc.prefix_length = 0  # reset
 
-    write = Mock()
+    stdout = Mock()
     await Proc(
         'echo hi',
-        write=write,
+        stdout=stdout,
         prefix='test_prefix',
     ).wait()
     await Proc(
         'echo hi',
-        write=write,
+        stdout=stdout,
         prefix='test_prefix_1'
     ).wait()
     await Proc(
         'echo hi',
-        write=write,
+        stdout=stdout,
         prefix='test_prefix',
     ).wait()
 
-    assert write.mock_calls == [
+    assert stdout.buffer.write.mock_calls == [
         call(
             Proc.prefix_colors[0].encode()
             + b'test_prefix '
@@ -133,17 +133,17 @@ async def test_prefix_multiline():
     Proc.prefix_length = 0  # reset
     proc = await Proc(
         'echo -e "a\nb"',
-        write=Mock(),
+        stdout=Mock(),
         prefix='test_prefix',
     ).wait()
-    assert proc.write.mock_calls == [
+    assert proc.stdout.buffer.write.mock_calls == [
         call(
             Proc.prefix_colors[0].encode()
             + b'test_prefix '
             + Proc.colors.reset.encode()
             + b'| '
             + Proc.colors.bgray.encode()
-            + b'+ echo -e "a\\nb"'
+            + b"+ echo -e 'a\\nb'"
             + Proc.colors.reset.encode()
             + b'\n'
         ),
@@ -174,12 +174,12 @@ async def test_highlight():
     """
     proc = await Proc(
         'echo hi',
-        write=Mock(),
+        stdout=Mock(),
         regexps={
             r'h([\w\d-]+)': 'h{cyan}\\1',
         }
     ).wait()
-    proc.write.assert_called_with(b'h\x1b[38;5;51mi\x1b[0m\n')
+    proc.stdout.buffer.write.assert_called_with(b'h\x1b[38;5;51mi\x1b[0m\n')
 
 
 @pytest.mark.asyncio
@@ -189,29 +189,40 @@ async def test_highlight_if_not_colored():
     """
     proc = await Proc(
         'echo -e h"\\e[31m"i',
-        write=Mock(),
+        stdout=Mock(),
         regexps={
             r'h([\w\d-]+)': 'h{cyan}\\1',
         }
     ).wait()
-    proc.write.assert_called_with(b'h\x1b[31mi\n')
+    proc.stdout.buffer.write.assert_called_with(b'h\x1b[31mi\n')
 
 
 @pytest.mark.asyncio
 async def test_expect():
     proc = Proc(
+        'sh', '-euc',
         'echo "x?"; read x; echo x=$x; echo "z?"; read z; echo z=$z',
         expects=[
-            dict(
-                regexp=b'x?',
-                sendline=b'y\n',
-            ),
-            dict(
-                regexp=b'z?',
-                sendline=b'w\n',
-            )
+            (b'x?', b'y\n'),
+            (b'z?', b'w\n'),
         ],
         quiet=True,
     )
     await proc.wait()
     assert proc.out == 'x?\nx=y\nz?\nz=w'
+
+@pytest.mark.asyncio
+async def test_stderr():
+    proc = await Proc(
+        'sh',
+        '-euc',
+        'echo hi >&2',
+        stdout=Mock(),
+        stderr=Mock()
+    ).wait()
+
+    assert proc.err_raw == bytearray(b'hi\n')
+    assert proc.err == 'hi'
+    proc.stderr.buffer.write.assert_called_once_with(
+        f'hi{proc.colors.reset}\n'.encode()
+    )

@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import os
 import re
 import shlex
 import sys
@@ -12,16 +13,23 @@ class SubprocessProtocol(asyncio.subprocess.SubprocessStreamProtocol):
         self.proc = proc
         super().__init__(*args, **kwargs)
 
+    def receive(self, data, raw, target):
+        raw.extend(data)
+        if not self.proc.quiet:
+            for line in self.proc.lines(data):
+                target.buffer.write(line)
+            target.flush()
+
     def pipe_data_received(self, fd, data):
         if fd == 1:
-            self.proc.stdout(data)
+            self.receive(data, self.proc.out_raw, self.proc.stdout)
         elif fd == 2:
-            self.proc.stderr(data)
+            self.receive(data, self.proc.err_raw, self.proc.stderr)
 
         if self.proc.expect_index < len(self.proc.expects):
             expected = self.proc.expects[self.proc.expect_index]
-            if re.match(expected['regexp'], data):
-                self.stdin.write(expected['sendline'])
+            if re.match(expected[0], data):
+                self.stdin.write(expected[1])
                 event_loop = asyncio.get_event_loop()
                 asyncio.create_task(self.stdin.drain())
                 self.proc.expect_index += 1
@@ -57,12 +65,14 @@ class Subprocess:
         expects=None,
         write=None,
         flush=None,
+        stdout=None,
+        stderr=None,
     ):
         self.args = args
         self.quiet = quiet if quiet is not None else False
         self.prefix = prefix
-        self.write = write or sys.stdout.buffer.write
-        self.flush = flush or sys.stdout.flush
+        self.stdout = stdout or sys.stdout
+        self.stderr = stderr or sys.stderr
         self.expects = expects or []
         self.expect_index = 0
         self.started = False
@@ -80,26 +90,21 @@ class Subprocess:
                 self.regexps[search] = replace
 
     async def start(self, wait=True):
-        if len(self.args) == 1 and ' ' in self.args[0]:
-            # Bottom line is that the conversion of argument from one into
-            # another is done in Popen based on the shell argument calling the
-            # list2cmdline function that has been masked from the public API
-            # issue10838, workaround it by converting command line to shell
-            # arguments
-            cmd = self.args[0]
-            args = ['sh', '-euc', cmd]
+        if len(self.args) == 1 and not os.path.exists(self.args[0]):
+            args = shlex.split(self.args[0])
         else:
-            cmd = shlex.join(self.args)
             args = self.args
 
         if not self.quiet:
-            self.output(
-                self.colors.bgray.encode()
-                + b'+ '
-                + cmd.replace('\n', '\\n').encode()
-                + self.colors.reset.encode(),
-                highlight=False
-            )
+            message = b''.join([
+                self.colors.bgray.encode(),
+                b'+ ',
+                shlex.join(args).replace('\n', '\\n').encode(),
+                self.colors.reset.encode(),
+            ])
+            for line in self.lines(message, highlight=False):
+                self.stdout.buffer.write(line)
+            self.stdout.flush()
 
         # The following is a copy of what asyncio.subprocess_exec and
         # asyncio.create_subprocess_exec do except we inject our own
@@ -118,8 +123,8 @@ class Subprocess:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        self.proc = asyncio.subprocess.Process(self.transport, self.protocol, loop)
 
+        self.proc = asyncio.subprocess.Process(self.transport, self.protocol, loop)
         self.started = True
 
     async def wait(self, *args, **kwargs):
@@ -128,43 +133,34 @@ class Subprocess:
 
         if not self.waited:
             await self.proc.communicate()
+            self.rc = self.transport.get_returncode()
             self.waited = True
 
         return self
 
-    def stdout(self, data):
-        self.out_raw.extend(data)
-        if not self.quiet:
-            self.output(data)
-
-    def stderr(self, data):
-        self.err_raw.extend(data)
-        if not self.quiet:
-            self.output(data)
-
-    @functools.cached_property
+    @property
     def out(self):
+        if self.waited:
+            if '_out_cached' not in self.__dict__:
+                self._out_cached = self.out_raw.decode().strip()
+            return self._out_cached
         return self.out_raw.decode().strip()
 
-    @functools.cached_property
+    @property
     def err(self):
+        if self.waited:
+            if '_err_cached' not in self.__dict__:
+                self._err_cached = self.err_raw.decode().strip()
+            return self._err_cached
         return self.err_raw.decode().strip()
 
-    @functools.cached_property
-    def rc(self):
-        return self.transport.get_returncode()
-
-    def output(self, data, highlight=True, flush=True):
+    def lines(self, data, highlight=True):
         for line in data.strip().split(b'\n'):
             line = [self.highlight(line) if highlight else line]
             if self.prefix:
                 line = self.prefix_line() + line
             line.append(b'\n')
-            line = b''.join(line)
-            self.write(line)
-
-        if flush:
-            self.flush()
+            yield b''.join(line)
 
     def highlight(self, line, highlight=True):
         if not highlight or (

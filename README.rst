@@ -36,6 +36,8 @@ Basic example, this will both stream output and capture it:
     proc = await Subprocess('echo hi').wait()
     print(proc.rc, proc.out, proc.err, proc.out_raw, proc.err_raw)
 
+Arguments may be a string command or a list of arguments.
+
 Longer
 ------
 
@@ -44,7 +46,7 @@ any of ``start()`` and ``wait()``, or both, explicitely:
 
 .. code-block:: python
 
-    proc = Subprocess('echo hi')
+    proc = Subprocess('echo', 'hi')
     await proc.start()  # start the process
     await proc.wait()   # wait for completion
 
@@ -93,18 +95,36 @@ will be applied line by line:
     }
     await asyncio.gather(*[
         Subprocess(
-            f'find {path}',
+            'find',
+            path,
             regexps=regexps,
+            shell=True,
         ).wait()
         for path in sys.path
     ])
+
+Automating input
+----------------
+
+You can pass a list of tuples of two bytestrings ``(regexp, characters_to_send)``:
+
+.. code-block:: python
+
+    proc = Proc(
+        'sh',
+        '-euc',
+        'echo "x?"; read x; echo x=$x; echo "z?"; read z; echo z=$z',
+        expects=[
+            (b'x?', b'y\n'),
+            (b'z?', b'w\n'),
+        ],
+    )
+    await proc.wait()
+    assert proc.out == 'x?\nx=y\nz?\nz=w'
 
 Where is the rest?
 ==================
 
 Shlax used to be the name of a much more ambitious poc-project, that you can
-still find in the ``OLD`` branch of this repository. It has been extracted in
-two projects with clear boundaries, namely `sysplan
-<https://yourlabs.io/oss/sysplan>`_ and `podplan
-<https://yourlabs.io/oss/podplan>`_ which are still in alpha state, although
-Shlax as it now, is feature complete and stable.
+still find in the ``OLD`` branch of this repository. Parts of it have been
+extracted into smaller repositories.
