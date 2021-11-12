@@ -22,7 +22,8 @@ class SubprocessProtocol(asyncio.subprocess.SubprocessStreamProtocol):
             expected = self.proc.expects[self.proc.expect_index]
             if re.match(expected['regexp'], data):
                 self.stdin.write(expected['sendline'])
-                self.stdin.flush()
+                event_loop = asyncio.get_event_loop()
+                asyncio.create_task(self.stdin.drain())
                 self.proc.expect_index += 1
 
 
@@ -49,7 +50,7 @@ class Subprocess:
 
     def __init__(
         self,
-        cmd,
+        *args,
         quiet=None,
         prefix=None,
         regexps=None,
@@ -57,7 +58,7 @@ class Subprocess:
         write=None,
         flush=None,
     ):
-        self.cmd = cmd
+        self.args = args
         self.quiet = quiet if quiet is not None else False
         self.prefix = prefix
         self.write = write or sys.stdout.buffer.write
@@ -79,26 +80,40 @@ class Subprocess:
                 self.regexps[search] = replace
 
     async def start(self, wait=True):
+        if len(self.args) == 1 and ' ' in self.args[0]:
+            # Bottom line is that the conversion of argument from one into
+            # another is done in Popen based on the shell argument calling the
+            # list2cmdline function that has been masked from the public API
+            # issue10838, workaround it by converting command line to shell
+            # arguments
+            cmd = self.args[0]
+            args = ['sh', '-euc', cmd]
+        else:
+            cmd = shlex.join(self.args)
+            args = self.args
+
         if not self.quiet:
             self.output(
                 self.colors.bgray.encode()
                 + b'+ '
-                + self.cmd.encode()
+                + cmd.replace('\n', '\\n').encode()
                 + self.colors.reset.encode(),
                 highlight=False
             )
 
-        # The following is a copy of what asyncio.create_subprocess_shell does
-        # except we inject our own SubprocessStreamProtocol subclass: it might
-        # need an update as new python releases come out.
+        # The following is a copy of what asyncio.subprocess_exec and
+        # asyncio.create_subprocess_exec do except we inject our own
+        # SubprocessStreamProtocol subclass: it might need an update as new
+        # python releases come out.
         loop = asyncio.get_running_loop()
-        self.transport, self.protocol = await loop.subprocess_shell(
+
+        self.transport, self.protocol = await loop.subprocess_exec(
             lambda: SubprocessProtocol(
                 self,
                 limit=asyncio.subprocess.streams._DEFAULT_LIMIT,
                 loop=loop,
             ),
-            self.cmd,
+            *args,
             stdin=asyncio.subprocess.PIPE if self.expects else sys.stdin,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,

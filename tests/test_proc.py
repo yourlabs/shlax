@@ -10,6 +10,7 @@ from shlax import Proc
     (
         ['echo hi'],
         ['sh -c "echo hi"'],
+        ['sh', '-c', 'echo hi'],
     )
 )
 async def test_proc(args):
